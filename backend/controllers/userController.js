@@ -10,7 +10,7 @@ const generateToken = (id) => {
 }
 
 
-const registerUser = asyncHandler(async(req, res) => {
+const registerUser = asyncHandler(async (req, res) => {
     const { id, email, password, name, fullName, userType } = req.body
 
     console.log("Register request received:", { id, email, name, fullName, userType })
@@ -57,7 +57,7 @@ const registerUser = asyncHandler(async(req, res) => {
 })
 
 
-const loginUser = asyncHandler(async(req, res) => {
+const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body
 
     console.log("Login request received:", { email })
@@ -84,7 +84,7 @@ const loginUser = asyncHandler(async(req, res) => {
 })
 
 
-const getUserProfile = asyncHandler(async(req, res) => {
+const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id).select("-password")
 
     if (user) {
@@ -96,13 +96,28 @@ const getUserProfile = asyncHandler(async(req, res) => {
 })
 
 
-const updateUserProfile = asyncHandler(async(req, res) => {
+const updateUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
 
     if (user) {
         user.fullName = req.body.fullName || user.fullName
         user.bio = req.body.bio !== undefined ? req.body.bio : user.bio
-        user.profileImageUrl = req.body.profileImageUrl || user.profileImageUrl
+        user.location = req.body.location || user.location
+        user.website = req.body.website || user.website
+
+        // Handle profile image upload
+        if (req.files && req.files.profileImage) {
+            user.profileImageUrl = req.files.profileImage[0].path
+        } else if (req.body.profileImageUrl) {
+            user.profileImageUrl = req.body.profileImageUrl
+        }
+
+        // Handle cover image upload
+        if (req.files && req.files.coverImage) {
+            user.coverImageUrl = req.files.coverImage[0].path
+        } else if (req.body.coverImageUrl) {
+            user.coverImageUrl = req.body.coverImageUrl
+        }
 
         if (req.body.password) {
             user.password = req.body.password // Will be hashed by pre-save hook
@@ -117,7 +132,10 @@ const updateUserProfile = asyncHandler(async(req, res) => {
             fullName: updatedUser.fullName,
             userType: updatedUser.userType,
             bio: updatedUser.bio,
+            location: updatedUser.location,
+            website: updatedUser.website,
             profileImageUrl: updatedUser.profileImageUrl,
+            coverImageUrl: updatedUser.coverImageUrl,
             verificationStatus: updatedUser.verificationStatus,
         })
     } else {
@@ -127,7 +145,7 @@ const updateUserProfile = asyncHandler(async(req, res) => {
 })
 
 
-const getUserById = asyncHandler(async(req, res) => {
+const getUserById = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id).select("-password")
 
     if (user) {
@@ -139,7 +157,7 @@ const getUserById = asyncHandler(async(req, res) => {
 })
 
 
-const getUserByEmail = asyncHandler(async(req, res) => {
+const getUserByEmail = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.params.email }).select("-password")
 
     if (user) {
@@ -150,13 +168,13 @@ const getUserByEmail = asyncHandler(async(req, res) => {
     }
 })
 
-const checkUserExists = asyncHandler(async(req, res) => {
+const checkUserExists = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.params.email })
     res.json({ exists: !!user })
 })
 
 
-const deleteUser = asyncHandler(async(req, res) => {
+const deleteUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -175,7 +193,7 @@ const deleteUser = asyncHandler(async(req, res) => {
 })
 
 
-const updateUserType = asyncHandler(async(req, res) => {
+const updateUserType = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -194,7 +212,7 @@ const updateUserType = asyncHandler(async(req, res) => {
     res.json(updatedUser)
 })
 
-const submitVerificationRequest = asyncHandler(async(req, res) => {
+const submitVerificationRequest = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -219,7 +237,7 @@ const submitVerificationRequest = asyncHandler(async(req, res) => {
 })
 
 
-const getVerificationStatus = asyncHandler(async(req, res) => {
+const getVerificationStatus = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -235,7 +253,7 @@ const getVerificationStatus = asyncHandler(async(req, res) => {
     res.json({ status: user.verificationStatus })
 })
 
-const updateVerificationStatus = asyncHandler(async(req, res) => {
+const updateVerificationStatus = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -254,7 +272,7 @@ const updateVerificationStatus = asyncHandler(async(req, res) => {
     res.json({ message: "Verification status updated" })
 })
 
-const resetPassword = asyncHandler(async(req, res) => {
+const resetPassword = asyncHandler(async (req, res) => {
     const { email, password } = req.query
 
     const user = await User.findOne({ email })
@@ -270,7 +288,7 @@ const resetPassword = asyncHandler(async(req, res) => {
     res.json({ message: "Password reset successful" })
 })
 
-const approveArtist = asyncHandler(async(req, res) => {
+const approveArtist = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -290,7 +308,7 @@ const approveArtist = asyncHandler(async(req, res) => {
 })
 
 
-const suspendUser = asyncHandler(async(req, res) => {
+const suspendUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id)
 
     if (!user) {
@@ -310,6 +328,45 @@ const suspendUser = asyncHandler(async(req, res) => {
 })
 
 
+const Follow = require("../models/followModel")
+
+const followUser = asyncHandler(async (req, res) => {
+    const followingId = req.params.id
+    const followerId = req.user._id
+
+    if (followingId === followerId) {
+        res.status(400)
+        throw new Error("You cannot follow yourself")
+    }
+
+    const follow = await Follow.create({
+        followerId,
+        followingId,
+    })
+
+    res.status(201).json({ message: "Followed successfully" })
+})
+
+const unfollowUser = asyncHandler(async (req, res) => {
+    const followingId = req.params.id
+    const followerId = req.user._id
+
+    await Follow.findOneAndDelete({ followerId, followingId })
+
+    res.json({ message: "Unfollowed successfully" })
+})
+
+const getFollowers = asyncHandler(async (req, res) => {
+    const follows = await Follow.find({ followingId: req.params.id }).populate("followerId", "name email profileImageUrl")
+    const followers = follows.map(f => f.followerId)
+    res.json(followers)
+})
+
+const getFollowing = asyncHandler(async (req, res) => {
+    const follows = await Follow.find({ followerId: req.params.id }).populate("followingId", "name email profileImageUrl")
+    const following = follows.map(f => f.followingId)
+    res.json(following)
+})
 
 module.exports = {
     registerUser,
@@ -323,7 +380,12 @@ module.exports = {
     updateUserType,
     submitVerificationRequest,
     getVerificationStatus,
+    updateVerificationStatus,
     resetPassword,
     approveArtist,
     suspendUser,
+    followUser,
+    unfollowUser,
+    getFollowers,
+    getFollowing,
 }

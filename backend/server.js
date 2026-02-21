@@ -6,6 +6,11 @@ const { errorHandler } = require("./middleware/errorMiddleware")
 const userRoutes = require("./routes/userRoutes")
 const playlistRoutes = require("./routes/playlistRoutes")
 const watchlistRoutes = require("./routes/watchlistRoutes")
+const musicRoutes = require("./routes/musicRoutes")
+const searchRoutes = require("./routes/searchRoutes")
+const exploreRoutes = require("./routes/exploreRoutes")
+const notificationRoutes = require("./routes/notificationRoutes")
+const statsRoutes = require("./routes/statsRoutes")
 
 dotenv.config()
 
@@ -19,9 +24,14 @@ app.use(express.urlencoded({ extended: false }))
 app.use("/api/users", userRoutes)
 app.use("/api/playlists", playlistRoutes)
 app.use("/api/watchlists", watchlistRoutes)
+app.use("/api/music", musicRoutes)
+app.use("/api/search", searchRoutes)
+app.use("/api/explore", exploreRoutes)
+app.use("/api/notifications", notificationRoutes)
+app.use("/api/stats", statsRoutes)
 
 app.get("/", (req, res) => {
-    res.send("Arif Music API is running")
+    res.send("Rivo Music API is running")
 })
 
 app.use(errorHandler)

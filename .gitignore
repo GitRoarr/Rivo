@@ -1,0 +1,17 @@
+node_modules/
+.env
+.vscode/
+.DS_Store
+
+# Android-specific
+.gradle/
+build/
+.idea/
+local.properties
+*.iml
+.kotlin/
+captures/
+*.jks
+*.p12
+*.key
+*.keystore

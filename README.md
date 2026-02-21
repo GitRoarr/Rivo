@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # <img src="https://res.cloudinary.com/do2guqnvl/image/upload/v1708365000/rivo/logo_main.png" width="40" height="40" /> Rivo — The Rhythm of Ethiopia
+=======
+# <img src="https://res.cloudinary.com/do2guqnvl/image/upload/v1708365000/rivo/logo_main.png" width="40" height="40" /> Rivo — Where Rhythm Meets Voice
+>>>>>>> 9a4dc34 (backend for music upload updated)
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-purple.svg?style=flat-square&logo=kotlin)](https://kotlinlang.org/)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-Premium_UI-pink.svg?style=flat-square&logo=jetpack-compose)](https://developer.android.com/jetpack/compose)
@@ -6,7 +10,11 @@
 [![Database](https://img.shields.io/badge/MongoDB-Atlas-darkgreen.svg?style=flat-square&logo=mongodb)](https://www.mongodb.com/atlas)
 [![Cloud](https://img.shields.io/badge/Cloudinary-Media_Management-blue.svg?style=flat-square&logo=cloudinary)](https://cloudinary.com/)
 
+<<<<<<< HEAD
 **Rivo** (*Ri*hythm + *Vo*ice) represents the ultimate "Music Flow." It is a state-of-the-art Ethiopian music streaming platform built to empower artists and delight listeners with a premium, immersive experience.
+=======
+**Rivo** (*Ri*hythm + *Vo*voice) represents the ultimate "Music Flow." It is a state-of-the-art music streaming platform built to empower artists and delight listeners with a premium, immersive experience.
+>>>>>>> 9a4dc34 (backend for music upload updated)
 
 ---
 
@@ -31,7 +39,11 @@ Designed for creators. Rivo uses a robust Cloudinary-integrated pipeline to ensu
 *   **Curated Approval**: Admins maintain a high-quality ecosystem by reviewing and moderating all content before it goes global.
 
 ### 🎧 2. Personalization & Discovery
+<<<<<<< HEAD
 For the listener, Rivo is a gateway to the heart of Ethiopian sound.
+=======
+For the listener, Rivo is a gateway to the heart of music.
+>>>>>>> 9a4dc34 (backend for music upload updated)
 
 *   **Dynamic Playlists**: Create, edit, and reorder your own collections with custom cover art support.
 *   **The Watchlist**: Never lose a track. Heart any song to save it to your premium "Liked Songs" center.
@@ -60,11 +72,19 @@ For the listener, Rivo is a gateway to the heart of Ethiopian sound.
 ---
 
 ## 🚀 Vision
+<<<<<<< HEAD
 Our goal with **Rivo** is to digitize the rich musical heritage of Ethiopia while providing local artists with the tools they need to succeed in the modern era. From the first beat of a *Tizita* to the latest *Habesha* heat, Rivo is the platform for your voice.
 
 ---
 
 ## � Installation & Setup
+=======
+Our goal with **Rivo** is to digitize and preserve musical heritage while providing artists with the tools they need to succeed in the modern era. Rivo is the platform for your voice, your rhythm, and your sound.
+
+---
+
+## 🛠 Installation & Setup
+>>>>>>> 9a4dc34 (backend for music upload updated)
 
 ### Backend
 1. `cd backend`
