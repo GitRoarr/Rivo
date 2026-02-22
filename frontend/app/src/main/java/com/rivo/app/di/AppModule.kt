@@ -93,16 +93,18 @@ object AppModule {
     @Singleton
     fun provideNotificationRepository(
         @ApplicationContext context: Context,
-        notificationDao: NotificationDao
+        notificationDao: NotificationDao,
+        apiService: ApiService
     ): NotificationRepository =
-        NotificationRepository(context, notificationDao)
+        NotificationRepository(context, notificationDao, apiService)
 
     @Provides
     @Singleton
     fun provideArtistStatsRepository(
-        artistStatsDao: ArtistStatsDao
+        artistStatsDao: ArtistStatsDao,
+        apiService: ApiService
     ): ArtistStatsRepository =
-        ArtistStatsRepository(artistStatsDao)
+        ArtistStatsRepository(artistStatsDao, apiService)
 
     @Provides
     @Singleton
@@ -118,12 +120,6 @@ object AppModule {
         ConnectivityRepository(context)
 
 
-    @Provides
-    @Singleton
-    fun provideFeaturedContentRepository(
-        featuredContentDao: FeaturedContentDao
-    ): FeaturedContentRepository =
-        FeaturedContentRepository(featuredContentDao)
 
     @Provides
     @Singleton

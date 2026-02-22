@@ -2,10 +2,15 @@ package com.rivo.app.data.model
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 
 @Entity(
     tableName = "playlist_music_cross_ref",
     primaryKeys = ["playlistId", "musicId"],
+    indices = [
+        Index("playlistId"),
+        Index("musicId")
+    ],
     foreignKeys = [
         ForeignKey(
             entity = Playlist::class,

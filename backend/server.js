@@ -29,6 +29,7 @@ app.use("/api/search", searchRoutes)
 app.use("/api/explore", exploreRoutes)
 app.use("/api/notifications", notificationRoutes)
 app.use("/api/stats", statsRoutes)
+app.use("/api/featured", require("./routes/featuredContentRoutes"))
 
 app.get("/", (req, res) => {
     res.send("Rivo Music API is running")

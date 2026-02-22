@@ -368,6 +368,22 @@ const getFollowing = asyncHandler(async (req, res) => {
     res.json(following)
 })
 
+// @desc    Get all users (Admin only)
+// @route   GET /api/users
+// @access  Private/Admin
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find({}).select("-password")
+    res.json(users)
+})
+
+// @desc    Get users awaiting verification (Admin only)
+// @route   GET /api/users/verification/pending
+// @access  Private/Admin
+const getUsersAwaitingVerification = asyncHandler(async (req, res) => {
+    const users = await User.find({ verificationStatus: "PENDING" }).select("-password")
+    res.json(users)
+})
+
 module.exports = {
     registerUser,
     loginUser,
@@ -388,4 +404,6 @@ module.exports = {
     unfollowUser,
     getFollowers,
     getFollowing,
+    getAllUsers,
+    getUsersAwaitingVerification
 }

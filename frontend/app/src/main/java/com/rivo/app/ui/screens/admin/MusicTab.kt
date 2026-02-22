@@ -1,12 +1,12 @@
 package com.rivo.app.ui.screens.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,10 +22,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.MusicApprovalStatus
-import com.rivo.app.ui.theme.Primary
+import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.AdminViewModel
 
 @Composable
@@ -43,212 +42,152 @@ fun MusicTab(
     adminViewModel: AdminViewModel
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var showDropdownMenu by remember { mutableStateOf<String?>(null) }
     var selectedFilter by remember { mutableStateOf("All") }
 
-    val horizontalScrollState = rememberScrollState()
+    val filteredMusic = remember(allMusic, featuredMusic, searchQuery, selectedFilter) {
+        val base = when (selectedFilter) {
+            "Pending" -> allMusic.filter { it.approvalStatus == MusicApprovalStatus.PENDING }
+            "Approved" -> allMusic.filter { it.approvalStatus == MusicApprovalStatus.APPROVED }
+            "Featured" -> allMusic.filter { m -> featuredMusic.any { it.id == m.id } }
+            else -> allMusic
+        }
+        if (searchQuery.isBlank()) base
+        else base.filter { 
+            it.title.contains(searchQuery, ignoreCase = true) || 
+            it.artist.contains(searchQuery, ignoreCase = true) 
+        }
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(DarkBackground),
+        contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search music...", color = Color.Gray) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.Gray
+        item {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    "Music Moderation",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = White,
+                        fontWeight = FontWeight.Black
                     )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = Color.DarkGray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Primary,
-                    focusedContainerColor = Color(0xFF1E1E1E),
-                    unfocusedContainerColor = Color(0xFF1E1E1E)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                singleLine = true
-            )
+                )
+                Text(
+                    "${allMusic.size} tracks in library",
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray)
+                )
 
-            // Filter dropdown
-            Box {
-                var expanded by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.height(20.dp))
 
-                OutlinedButton(
-                    onClick = { expanded = true },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
-                    )
+                // Search and Filters
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(selectedFilter)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = "Filter"
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(Color(0xFF1E1E1E))
-                ) {
-                    listOf("All", "Pending", "Approved", "Featured").forEach { filter ->
-                        DropdownMenuItem(
-                            text = { Text(filter, color = Color.White) },
-                            onClick = {
-                                selectedFilter = filter
-                                expanded = false
-                            }
+                    Surface(
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = White.copy(alpha = 0.04f),
+                        border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Search...", color = DarkGray, style = MaterialTheme.typography.bodySmall) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedTextColor = White,
+                                unfocusedTextColor = White
+                            )
                         )
+                    }
+
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        Surface(
+                            modifier = Modifier.height(48.dp).clickable { expanded = true },
+                            shape = RoundedCornerShape(12.dp),
+                            color = RivoBlue.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, RivoBlue.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(selectedFilter, color = RivoBlue, style = MaterialTheme.typography.labelMedium)
+                                Icon(Icons.Default.FilterList, null, tint = RivoBlue, modifier = Modifier.size(16.dp).padding(start = 4.dp))
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(Color(0xFF252525))
+                        ) {
+                            listOf("All", "Pending", "Approved", "Featured").forEach { filter ->
+                                DropdownMenuItem(
+                                    text = { Text(filter, color = White) },
+                                    onClick = { selectedFilter = filter; expanded = false }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Table header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(horizontalScrollState),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Title",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(180.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Artist",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Genre",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Duration",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(80.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Status",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Actions",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(80.dp).padding(horizontal = 8.dp)
+        items(filteredMusic, key = { it.id }) { music ->
+            AdminMusicCard(
+                music = music,
+                isFeatured = featuredMusic.any { it.id == music.id },
+                onClick = { onMusicClick(music.id) },
+                onApprove = { onApproveMusicClick(music.id) },
+                onReject = { onRejectMusicClick(music.id) },
+                onFeature = { onFeatureMusicClick(music) },
+                onRemoveFeatured = { onRemoveFromFeaturedClick(music.id) },
+                onDelete = { onDeleteMusicClick(music.id) },
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
             )
         }
-
-        Divider(
-            color = Color.DarkGray,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        LazyColumn {
-            val filteredMusic = when (selectedFilter) {
-                "Pending" -> allMusic.filter { it.approvalStatus == MusicApprovalStatus.PENDING }
-                "Approved" -> allMusic.filter { it.approvalStatus == MusicApprovalStatus.APPROVED && !featuredMusic.contains(it) }
-                "Featured" -> allMusic.filter { featuredMusic.contains(it) }
-                else -> allMusic
-            }.filter {
-                if (searchQuery.isBlank()) true
-                else it.title.contains(searchQuery, ignoreCase = true) ||
-                        it.artist.contains(searchQuery, ignoreCase = true)
-            }
-
-            items(filteredMusic) { music ->
-                MusicListItem(
-                    music = music,
-                    isFeatured = featuredMusic.contains(music),
-                    onClick = { onMusicClick(music.id) },
-                    onMenuClick = { showDropdownMenu = music.id },
-                    showMenu = showDropdownMenu == music.id,
-                    onDismissMenu = { showDropdownMenu = null },
-                    onApproveClick = { onApproveMusicClick(music.id) },
-                    onRejectClick = { onRejectMusicClick(music.id) },
-                    onFeatureClick = { onFeatureMusicClick(music) } ,
-                    onRemoveFromFeaturedClick = { onRemoveFromFeaturedClick(music.id) },
-                    onDeleteClick = { onDeleteMusicClick(music.id) },
-                    onEditClick = { onEditMusicClick(music.id) },
-                    horizontalScrollState = horizontalScrollState
-                )
-
-                Divider(color = Color.DarkGray.copy(alpha = 0.5f))
-            }
-        }
-
-
     }
 }
 
 @Composable
-fun MusicListItem(
+private fun AdminMusicCard(
     music: Music,
     isFeatured: Boolean,
     onClick: () -> Unit,
-    onMenuClick: () -> Unit,
-    showMenu: Boolean,
-    onDismissMenu: () -> Unit,
-    onApproveClick: () -> Unit,
-    onRejectClick: () -> Unit,
-    onFeatureClick: () -> Unit,
-    onRemoveFromFeaturedClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onEditClick: () -> Unit,
-    horizontalScrollState: androidx.compose.foundation.ScrollState
+    onApprove: () -> Unit,
+    onReject: () -> Unit,
+    onFeature: () -> Unit,
+    onRemoveFeatured: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp)
-            .horizontalScroll(horizontalScrollState),
-        verticalAlignment = Alignment.CenterVertically
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = White.copy(alpha = 0.04f),
+        border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
     ) {
-        // Title with album art
         Row(
-            modifier = Modifier.width(180.dp).padding(horizontal = 8.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Artwork
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.DarkGray)
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(White.copy(alpha = 0.06f)),
+                contentAlignment = Alignment.Center
             ) {
-                if (music.artworkUri != null) {
+                if (!music.artworkUri.isNullOrEmpty()) {
                     AsyncImage(
                         model = music.artworkUri,
                         contentDescription = null,
@@ -256,190 +195,122 @@ fun MusicListItem(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = Color.White,
+                    Icon(Icons.Default.MusicNote, null, tint = RivoBlue, modifier = Modifier.size(24.dp))
+                }
+                
+                if (isFeatured) {
+                    Box(
                         modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.Center)
-                    )
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF59E0B)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Star, null, tint = DarkBackground, modifier = Modifier.size(10.dp))
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = music.title,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    music.title,
+                    style = MaterialTheme.typography.titleSmall.copy(color = White, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                if (music.album != null) {
+                Text(
+                    music.artist,
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                when (music.approvalStatus) {
+                                    MusicApprovalStatus.PENDING -> WarningYellow.copy(alpha = 0.1f)
+                                    MusicApprovalStatus.APPROVED -> SuccessGreen.copy(alpha = 0.1f)
+                                    else -> Color.Red.copy(alpha = 0.1f)
+                                }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            music.approvalStatus.name,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = when (music.approvalStatus) {
+                                    MusicApprovalStatus.PENDING -> WarningYellow
+                                    MusicApprovalStatus.APPROVED -> SuccessGreen
+                                    else -> Color.Red
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = music.album,
-                        color = Color.Gray,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        music.genre ?: "General",
+                        style = MaterialTheme.typography.labelSmall.copy(color = DarkGray)
                     )
                 }
             }
-        }
 
-        // Artist
-        Text(
-            text = music.artist,
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-        )
-
-        // Genre
-        Text(
-            text = music.genre ?: "Unknown",
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-        )
-
-        // Duration
-        Text(
-            text = formatDuration(music.duration.toInt()),
-            color = Color.White,
-            fontSize = 14.sp,
-            modifier = Modifier.width(80.dp).padding(horizontal = 8.dp)
-        )
-
-        // Status
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-        ) {
-            val statusColor = when {
-                music.approvalStatus == MusicApprovalStatus.PENDING -> Color(0xFFFF9800) // Orange for pending
-                isFeatured -> Color(0xFFFFD700) // Gold for featured
-                music.approvalStatus == MusicApprovalStatus.APPROVED -> Primary // Primary for approved
-                else -> Color.Red // Red for rejected
-            }
-
-            val statusText = when {
-                music.approvalStatus == MusicApprovalStatus.PENDING -> "Pending"
-                isFeatured -> "Featured"
-                music.approvalStatus == MusicApprovalStatus.APPROVED -> "Approved"
-                else -> "Rejected"
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(statusColor)
-            )
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            Text(
-                text = statusText,
-                color = Color.White,
-                fontSize = 14.sp
-            )
-        }
-
-        // Actions
-        Box(
-            modifier = Modifier.width(80.dp).padding(horizontal = 8.dp)
-        ) {
-            IconButton(
-                onClick = onMenuClick
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More Options",
-                    tint = Color.White
-                )
-            }
-
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = onDismissMenu,
-                modifier = Modifier.background(Color(0xFF1E1E1E))
-            ) {
-                DropdownMenuItem(
-                    text = { Text("View Details", color = Color.White) },
-                    onClick = {
-                        onClick()
-                        onDismissMenu()
+            // Moderation Actions or Menu
+            if (music.approvalStatus == MusicApprovalStatus.PENDING) {
+                Row {
+                    IconButton(onClick = onReject) {
+                        Icon(Icons.Default.Close, null, tint = Color.Red.copy(alpha = 0.7f))
                     }
-                )
-
-                DropdownMenuItem(
-                    text = { Text("Edit Track", color = Color.White) },
-                    onClick = {
-                        onEditClick()
-                        onDismissMenu()
+                    IconButton(onClick = onApprove) {
+                        Icon(Icons.Default.Check, null, tint = SuccessGreen)
                     }
-                )
-
-                if (music.approvalStatus == MusicApprovalStatus.PENDING) {
-                    DropdownMenuItem(
-                        text = { Text("Approve", color = Primary) },
-                        onClick = {
-                            onApproveClick()
-                            onDismissMenu()
-                        }
-                    )
-
-                    DropdownMenuItem(
-                        text = { Text("Reject", color = Color.Red) },
-                        onClick = {
-                            onRejectClick()
-                            onDismissMenu()
-                        }
-                    )
-                } else if (music.approvalStatus == MusicApprovalStatus.APPROVED) {
-                    if (isFeatured) {
+                }
+            } else {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, null, tint = LightGray)
+                    
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF252525))
+                    ) {
                         DropdownMenuItem(
-                            text = { Text("Remove from Featured", color = Color(0xFFFF9800)) },
-                            onClick = {
-                                onRemoveFromFeaturedClick()
-                                onDismissMenu()
-                            }
+                            text = { Text("View Details", color = White) },
+                            leadingIcon = { Icon(Icons.Default.Visibility, null, tint = LightGray) },
+                            onClick = { onClick(); showMenu = false }
                         )
-                    } else {
+                        
+                        if (isFeatured) {
+                            DropdownMenuItem(
+                                text = { Text("Remove Featured", color = White) },
+                                leadingIcon = { Icon(Icons.Default.StarOutline, null, tint = LightGray) },
+                                onClick = { onRemoveFeatured(); showMenu = false }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("Feature Song", color = Color(0xFFF59E0B)) },
+                                leadingIcon = { Icon(Icons.Default.Star, null, tint = Color(0xFFF59E0B)) },
+                                onClick = { onFeature(); showMenu = false }
+                            )
+                        }
+
+                        Divider(color = White.copy(alpha = 0.05f))
+
                         DropdownMenuItem(
-                            text = { Text("Add to Featured", color = Color(0xFFFFD700)) },
-                            onClick = {
-                                onFeatureClick()
-                                onDismissMenu()
-                            }
+                            text = { Text("Delete Track", color = Color.Red) },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) },
+                            onClick = { onDelete(); showMenu = false }
                         )
                     }
                 }
-
-                DropdownMenuItem(
-                    text = { Text("Delete Track", color = Color.Red) },
-                    onClick = {
-                        onDeleteClick()
-                        onDismissMenu()
-                    }
-                )
             }
         }
     }
-}
-
-// Helper function to format duration in seconds to mm:ss
-private fun formatDuration(durationInSeconds: Int): String {
-    val minutes = durationInSeconds / 60
-    val seconds = durationInSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
 }

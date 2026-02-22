@@ -43,11 +43,4 @@ interface PlaylistDao {
     suspend fun deletePlaylistMusicCrossRef(playlistId: Long, musicId: String)
 }
 
-data class PlaylistWithMusic(
-    @Embedded val playlist: Playlist,
-    @Relation(
-        parentColumn = "id",
-        entityColumn = "playlistId"
-    )
-    val musicList: List<Music>
-)
+// PlaylistWithMusic is moved to its own file PlaylistWithMusic.kt in this package

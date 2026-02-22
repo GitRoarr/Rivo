@@ -2,46 +2,49 @@ const asyncHandler = require("express-async-handler")
 const Music = require("../models/musicModel")
 const User = require("../models/userModel")
 const Follow = require("../models/followModel")
+const FeaturedContent = require("../models/featuredContentModel")
 
-// @desc    Get explore data (Trending, New Releases, Featured Artists, Banners)
-// @route   GET /api/explore
-// @access  Public
+
 const getExploreData = asyncHandler(async (req, res) => {
-    // Trending: Top 10 by plays
     const trendingMusic = await Music.find({ isApproved: true })
         .sort({ plays: -1 })
         .limit(10)
 
-    // New Releases: Top 10 by date
     const newReleases = await Music.find({ isApproved: true })
         .sort({ createdAt: -1 })
         .limit(10)
 
-    // Featured Artists: Top 10 artists with follower counts
     const artists = await User.find({ userType: "ARTIST" })
         .select("-password")
         .limit(10)
 
-    // Attach follower counts to each artist
     const featuredArtists = await Promise.all(
         artists.map(async (artist) => {
             const followerCount = await Follow.countDocuments({ followingId: artist._id })
             return { ...artist.toObject(), followerCount }
         })
     )
-
     // Featured Music: Random selection of 5 approved songs
     const featuredMusic = await Music.aggregate([
         { $match: { isApproved: true } },
         { $sample: { size: 5 } }
     ])
 
-    res.json({
-        trendingMusic,
-        newReleases,
-        featuredArtists,
-        featuredMusic,
-        banners: [
+    // Fetch banners from FeaturedContent
+    const featuredBanners = await FeaturedContent.find({ type: "BANNER", isActive: true }).sort({ order: 1 })
+
+    // Map to frontend format (especially description -> subtitle)
+    let dynamicBanners = featuredBanners.map(banner => ({
+        id: banner.id || banner._id,
+        imageUrl: banner.imageUrl,
+        title: banner.title,
+        subtitle: banner.description || banner.subtitle || "",
+        actionUrl: banner.actionUrl
+    }))
+
+    // Fallback if no dynamic banners exist
+    if (dynamicBanners.length === 0) {
+        dynamicBanners = [
             {
                 id: "1",
                 imageUrl: "https://res.cloudinary.com/do2guqnvl/image/upload/v1708365000/rivo/banners/banner1.jpg",
@@ -56,7 +59,15 @@ const getExploreData = asyncHandler(async (req, res) => {
                 subtitle: "Fresh sounds from your favorite artists",
                 actionUrl: "/new-releases"
             }
-        ],
+        ]
+    }
+
+    res.json({
+        trendingMusic,
+        newReleases,
+        featuredArtists,
+        featuredMusic,
+        banners: dynamicBanners,
         categories: [
             { id: "1", title: "Pop", color: "#FF6B6B", icon: "music_note" },
             { id: "2", title: "Hip-Hop", color: "#4ECDC4", icon: "mic" },

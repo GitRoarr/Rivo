@@ -55,12 +55,46 @@ class MusicRepository @Inject constructor(
         }
     }
 
+    suspend fun refreshAllMusicAdmin(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getAllMusicAdmin()
+            if (response.isSuccessful && response.body() != null) {
+                musicDao.insertAllMusic(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to refresh admin music"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun refreshPendingMusic(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getPendingMusic()
+            if (response.isSuccessful && response.body() != null) {
+                musicDao.insertAllMusic(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to refresh pending music"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
+    }
+
     suspend fun incrementPlayCountIfFirstTime(musicId: String) {
         val userId = sessionManager.getCurrentUserId()
         val hasPlayed = musicPlayedDao.hasUserPlayedMusic(userId, musicId) > 0
         if (!hasPlayed) {
             musicDao.incrementPlayCount(musicId)
             musicPlayedDao.insertMusicPlayed(MusicPlayed(userId = userId, musicId = musicId))
+            // Sync play count to server
+            try {
+                apiService.incrementMusicPlay(musicId)
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to sync play count: ${e.message}")
+            }
         }
     }
 
@@ -98,10 +132,20 @@ class MusicRepository @Inject constructor(
         Log.d("UploadDebug", "Music inserted: ${music.title}")
     }
 
-    suspend fun deleteMusic(musicId: String) {
-        val music = musicDao.getMusicById(musicId)
-        music?.let {
-            musicDao.deleteMusic(it)
+    suspend fun deleteMusic(musicId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.deleteMusic(musicId)
+            if (response.isSuccessful) {
+                val music = musicDao.getMusicById(musicId)
+                music?.let { musicDao.deleteMusic(it) }
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to delete music"))
+            }
+        } catch (e: Exception) {
+            val music = musicDao.getMusicById(musicId)
+            music?.let { musicDao.deleteMusic(it) }
+            return@withContext Result.success(Unit)
         }
     }
 
@@ -109,19 +153,37 @@ class MusicRepository @Inject constructor(
         return musicDao.getMusicByApprovalStatus(MusicApprovalStatus.PENDING)
     }
 
-    suspend fun approveMusic(musicId: String) {
-        val music = musicDao.getMusicById(musicId)
-        music?.let {
-            val updatedMusic = it.copy(approvalStatus = MusicApprovalStatus.APPROVED)
-            musicDao.insertMusic(updatedMusic)
+    suspend fun approveMusic(musicId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.approveMusic(musicId)
+            if (response.isSuccessful) {
+                val music = musicDao.getMusicById(musicId)
+                music?.let {
+                    musicDao.insertMusic(it.copy(approvalStatus = MusicApprovalStatus.APPROVED))
+                }
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to approve music"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
         }
     }
 
-    suspend fun rejectMusic(musicId: String) {
-        val music = musicDao.getMusicById(musicId)
-        music?.let {
-            val updatedMusic = it.copy(approvalStatus = MusicApprovalStatus.REJECTED)
-            musicDao.insertMusic(updatedMusic)
+    suspend fun rejectMusic(musicId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.rejectMusic(musicId)
+            if (response.isSuccessful) {
+                val music = musicDao.getMusicById(musicId)
+                music?.let {
+                    musicDao.insertMusic(it.copy(approvalStatus = MusicApprovalStatus.REJECTED))
+                }
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to reject music"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
         }
     }
 
@@ -133,8 +195,22 @@ class MusicRepository @Inject constructor(
         audioPath: String,
         coverImagePath: String?
     ): Result<Music> = withContext(Dispatchers.IO) {
+        var tempAudioFile: File? = null
         return@withContext try {
-            val audioFile = File(audioPath.replace("file://", ""))
+            val audioUri = Uri.parse(audioPath)
+            val audioFile = if (audioUri.scheme == "content") {
+                val tempFile = File(context.cacheDir, "temp_upload_${System.currentTimeMillis()}.mp3")
+                context.contentResolver.openInputStream(audioUri)?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                tempAudioFile = tempFile
+                tempFile
+            } else {
+                File(audioPath.replace("file://", ""))
+            }
+
             if (!audioFile.exists()) return@withContext Result.failure(Exception("Audio file not found"))
 
             val audioRequestFile = audioFile.asRequestBody("audio/*".toMediaTypeOrNull())
@@ -176,6 +252,10 @@ class MusicRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("MusicRepository", "uploadMusic exception: ${e.message}", e)
             Result.failure(e)
+        } finally {
+            tempAudioFile?.let {
+                if (it.exists()) it.delete()
+            }
         }
     }
 

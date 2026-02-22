@@ -9,6 +9,7 @@ import com.rivo.app.data.remote.ApiService
 import com.rivo.app.data.remote.LoginRequest
 import com.rivo.app.data.remote.UserRegistrationRequest
 import com.rivo.app.data.remote.UserUpdateRequest
+import com.rivo.app.data.remote.VerificationUpdateRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -248,10 +249,36 @@ class UserRepository @Inject constructor(
         }
     }
 
-
-
     fun getAllUsers(): Flow<List<User>> {
         return userDao.getAllUsers()
+    }
+
+    suspend fun refreshAllUsers(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getAllUsers()
+            if (response.isSuccessful && response.body() != null) {
+                userDao.insertAllUsers(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to refresh users"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun refreshPendingVerifications(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getUsersAwaitingVerification()
+            if (response.isSuccessful && response.body() != null) {
+                userDao.insertAllUsers(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to refresh pending verifications"))
+            }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
     }
 
     fun getArtists(): Flow<List<User>> {
@@ -281,8 +308,38 @@ class UserRepository @Inject constructor(
         return userDao.getUserById(userId)
     }
 
-    suspend fun promoteUserToArtist(userId: String) {
-        userDao.updateUserType(userId, "ARTIST")
+    suspend fun promoteUserToArtist(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.updateUserType(userId, "ARTIST")
+            if (response.isSuccessful && response.body() != null) {
+                userDao.insertUser(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                userDao.updateUserType(userId, "ARTIST")
+                return@withContext Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            userDao.updateUserType(userId, "ARTIST")
+            return@withContext Result.success(Unit)
+        }
+    }
+
+    suspend fun promoteUserToAdmin(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.updateUserType(userId, "ADMIN")
+            if (response.isSuccessful && response.body() != null) {
+                userDao.insertUser(response.body()!!)
+                return@withContext Result.success(Unit)
+            } else {
+                val user = userDao.getUserById(userId) ?: return@withContext Result.failure(Exception("User not found"))
+                userDao.insertUser(user.copy(userType = UserType.ADMIN))
+                return@withContext Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            val user = userDao.getUserById(userId) ?: return@withContext Result.failure(e)
+            userDao.insertUser(user.copy(userType = UserType.ADMIN))
+            return@withContext Result.success(Unit)
+        }
     }
 
     suspend fun updateUserPassword(email: String, newPassword: String): Result<User> {
@@ -416,14 +473,17 @@ class UserRepository @Inject constructor(
         }
     }
 
-
-    // Other methods remain the same...
-    suspend fun approveArtist(email: String, approved: Boolean): Result<Unit> {
-        return try {
-            userDao.updateApprovalStatus(email, approved)
-            Result.success(Unit)
+    suspend fun approveArtist(artistId: String, approved: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.approveArtist(artistId, approved)
+            if (response.isSuccessful) {
+                userDao.updateArtistApprovalStatus(artistId, approved)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to approve artist"))
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
@@ -432,22 +492,17 @@ class UserRepository @Inject constructor(
         return user != null
     }
 
-
-
-    suspend fun updateArtistApprovalStatus(artistId: String, approved: Boolean) {
+    suspend fun suspendUser(userId: String, isSuspended: Boolean = true): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            userDao.updateArtistApprovalStatus(artistId, approved)
+            val response = apiService.suspendUser(userId, isSuspended)
+            if (response.isSuccessful) {
+                userDao.updateUserSuspension(userId, isSuspended)
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to suspend user"))
+            }
         } catch (e: Exception) {
-            throw e
-        }
-    }
-
-    suspend fun suspendUser(userId: String, isSuspended: Boolean = true): Result<Unit> {
-        return try {
-            userDao.updateUserSuspension(userId, isSuspended)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
@@ -466,36 +521,37 @@ class UserRepository @Inject constructor(
         }
     }
 
-    suspend fun promoteUserToAdmin(userId: String): Result<Unit> {
-        return try {
-            val user = userDao.getUserById(userId) ?: return Result.failure(Exception("User not found"))
-            val updatedUser = user.copy(userType = UserType.ADMIN)
-            userDao.insertUser(updatedUser)
-            Result.success(Unit)
+    suspend fun approveUserVerification(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.updateVerificationStatus(userId, VerificationUpdateRequest(status = "VERIFIED"))
+            if (response.isSuccessful) {
+                val user = userDao.getUserById(userId)
+                if (user != null) {
+                    userDao.insertUser(user.copy(verificationStatus = VerificationStatus.VERIFIED))
+                }
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to approve verification"))
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
-    suspend fun approveUserVerification(userId: String): Result<Unit> {
-        return try {
-            val user = userDao.getUserById(userId) ?: return Result.failure(Exception("User not found"))
-            val updatedUser = user.copy(verificationStatus = VerificationStatus.VERIFIED)
-            userDao.insertUser(updatedUser)
-            Result.success(Unit)
+    suspend fun rejectUserVerification(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.updateVerificationStatus(userId, VerificationUpdateRequest(status = "REJECTED"))
+            if (response.isSuccessful) {
+                val user = userDao.getUserById(userId)
+                if (user != null) {
+                    userDao.insertUser(user.copy(verificationStatus = VerificationStatus.REJECTED))
+                }
+                return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to reject verification"))
+            }
         } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun rejectUserVerification(userId: String): Result<Unit> {
-        return try {
-            val user = userDao.getUserById(userId) ?: return Result.failure(Exception("User not found"))
-            val updatedUser = user.copy(verificationStatus = VerificationStatus.REJECTED)
-            userDao.insertUser(updatedUser)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 

@@ -8,17 +8,22 @@ import androidx.lifecycle.viewModelScope
 import com.rivo.app.data.model.FeaturedContent
 import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.model.Music
+import com.rivo.app.data.model.MusicApprovalStatus
 import com.rivo.app.data.model.User
 import com.rivo.app.data.model.UserType
+import com.rivo.app.data.model.VerificationStatus
+import com.rivo.app.data.remote.AdminStatsResponse
 import com.rivo.app.data.repository.FeaturedContentRepository
 import com.rivo.app.data.repository.MusicRepository
 import com.rivo.app.data.repository.SessionManager
+import com.rivo.app.data.repository.StatsRepository
 import com.rivo.app.data.repository.UserRepository
 import com.rivo.app.utils.ImagePickerHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -29,6 +34,7 @@ class AdminViewModel @Inject constructor(
     private val featuredContentRepository: FeaturedContentRepository,
     private val musicRepository: MusicRepository,
     private val userRepository: UserRepository,
+    private val statsRepository: StatsRepository,
     private val sessionManager: SessionManager
 ) : ViewModel() {
 
@@ -38,17 +44,17 @@ class AdminViewModel @Inject constructor(
     private val _allUsers = MutableStateFlow<List<User>>(emptyList())
     val allUsers: StateFlow<List<User>> = _allUsers
 
+    private val _allMusic = MutableStateFlow<List<Music>>(emptyList())
+    val allMusic: StateFlow<List<Music>> = _allMusic
+
+    private val _platformStats = MutableStateFlow<AdminStatsResponse?>(null)
+    val platformStats: StateFlow<AdminStatsResponse?> = _platformStats
+
     private val _featuredSongs = MutableStateFlow<List<Music>>(emptyList())
     val featuredSongs: StateFlow<List<Music>> = _featuredSongs
 
     private val _featuredArtists = MutableStateFlow<List<User>>(emptyList())
     val featuredArtists: StateFlow<List<User>> = _featuredArtists
-
-    private val _allMusic = MutableStateFlow<List<Music>>(emptyList())
-    val allMusic: StateFlow<List<Music>> = _allMusic
-
-    private val _platformStats = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val platformStats: StateFlow<Map<String, Int>> = _platformStats
 
     private val _pendingVerifications = MutableStateFlow<List<User>>(emptyList())
     val pendingVerifications: StateFlow<List<User>> = _pendingVerifications
@@ -62,6 +68,9 @@ class AdminViewModel @Inject constructor(
     private val _operationStatus = MutableStateFlow<String?>(null)
     val operationStatus: StateFlow<String?> = _operationStatus
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     init {
         viewModelScope.launch {
             val session = sessionManager.sessionFlow.first()
@@ -69,146 +78,198 @@ class AdminViewModel @Inject constructor(
                 val admin = userRepository.getUserByEmail(session.email)
                 _currentAdmin.value = admin
             }
-            loadAllData()
+            refreshAllData()
+            observeData()
         }
     }
 
-    private fun loadAllData() {
-        loadAllUsers()
-        loadAllMusic()
-        loadPlatformStats()
-        loadPendingVerifications()
-        loadPendingMusic()
-        loadFeaturedContent()
-        loadFeaturedSongs()
-        loadFeaturedArtists()
-    }
-
-    private fun loadAllUsers() {
+    private fun observeData() {
         viewModelScope.launch {
             userRepository.getAllUsers().collectLatest { users ->
                 _allUsers.value = users
+                _pendingVerifications.value = users.filter { it.verificationStatus == VerificationStatus.PENDING }
             }
         }
-    }
 
-    private fun loadAllMusic() {
         viewModelScope.launch {
             musicRepository.getAllMusic().collectLatest { musics ->
                 _allMusic.value = musics
+                _pendingMusic.value = musics.filter { it.approvalStatus == MusicApprovalStatus.PENDING }
             }
         }
-    }
 
-    private fun loadPlatformStats() {
-        viewModelScope.launch {
-            val users = userRepository.getAllUsers().first()
-            val musics = musicRepository.getAllMusic().first()
-
-            _platformStats.value = mapOf(
-                "totalUsers" to users.size,
-                "totalArtists" to users.count { it.userType == UserType.ARTIST },
-                "totalSongs" to musics.size,
-                "totalPlays" to musics.sumOf { it.playCount }
-            )
-        }
-    }
-
-    private fun loadPendingVerifications() {
-        viewModelScope.launch {
-            userRepository.getUsersAwaitingVerification().collectLatest { pendingUsers ->
-                _pendingVerifications.value = pendingUsers
-            }
-        }
-    }
-
-    private fun loadPendingMusic() {
-        viewModelScope.launch {
-            musicRepository.getPendingApprovalMusic().collectLatest { pendingMusics ->
-                _pendingMusic.value = pendingMusics
-            }
-        }
-    }
-
-    private fun loadFeaturedContent() {
         viewModelScope.launch {
             featuredContentRepository.getAllFeaturedContent().collectLatest { contents ->
                 _featuredContent.value = contents
+            }
+        }
+
+        // Keep featuredSongs and featuredArtists in sync
+        viewModelScope.launch {
+            combine(_allMusic, _featuredContent) { musics, featured ->
+                musics.filter { m -> featured.any { it.type == FeaturedType.SONG && it.contentId == m.id } }
+            }.collectLatest {
+                _featuredSongs.value = it
+            }
+        }
+
+        viewModelScope.launch {
+            combine(_allUsers, _featuredContent) { users, featured ->
+                users.filter { u -> featured.any { it.type == FeaturedType.ARTIST && it.contentId == u.id } }
+            }.collectLatest {
+                _featuredArtists.value = it
+            }
+        }
+    }
+
+    fun refreshAllData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                userRepository.refreshAllUsers()
+                musicRepository.refreshAllMusicAdmin()
+                musicRepository.refreshPendingMusic()
+                userRepository.refreshPendingVerifications()
+                featuredContentRepository.refreshFeaturedContent()
+                
+                statsRepository.getAdminStats().onSuccess { stats ->
+                    _platformStats.value = stats
+                }
+            } catch (e: Exception) {
+                Log.e("AdminViewModel", "Error refreshing data: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
     fun suspendUser(userId: String) {
         viewModelScope.launch {
-            userRepository.suspendUser(userId, true)
-            _operationStatus.value = "User suspended"
-            loadAllUsers()
+            val result = userRepository.suspendUser(userId, true)
+            if (result.isSuccess) {
+                _operationStatus.value = "User suspended"
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to suspend user"
+            }
+        }
+    }
+
+    fun unsuspendUser(userId: String) {
+        viewModelScope.launch {
+            val result = userRepository.suspendUser(userId, false)
+            if (result.isSuccess) {
+                _operationStatus.value = "User unsuspended"
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to unsuspend user"
+            }
         }
     }
 
     fun makeAdmin(userId: String) {
         viewModelScope.launch {
-            userRepository.promoteUserToAdmin(userId)
-            _operationStatus.value = "User promoted to Admin"
-            loadAllUsers()
+            val result = userRepository.promoteUserToAdmin(userId)
+            if (result.isSuccess) {
+                _operationStatus.value = "User promoted to Admin"
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to promote user"
+            }
+        }
+    }
+
+    fun makeArtist(userId: String) {
+        viewModelScope.launch {
+            val result = userRepository.promoteUserToArtist(userId)
+            if (result.isSuccess) {
+                _operationStatus.value = "User promoted to Artist"
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to promote user"
+            }
         }
     }
 
     fun approveMusic(musicId: String) {
         viewModelScope.launch {
-            musicRepository.approveMusic(musicId)
-            _operationStatus.value = "Music approved"
-            loadPendingMusic()
-            loadAllMusic()
+            val result = musicRepository.approveMusic(musicId)
+            if (result.isSuccess) {
+                _operationStatus.value = "Music approved"
+                musicRepository.refreshPendingMusic()
+                musicRepository.refreshAllMusicAdmin()
+            } else {
+                _operationStatus.value = "Failed to approve music"
+            }
         }
     }
 
     fun rejectMusic(musicId: String) {
         viewModelScope.launch {
-            musicRepository.rejectMusic(musicId)
-            _operationStatus.value = "Music rejected"
-            loadPendingMusic()
+            val result = musicRepository.rejectMusic(musicId)
+            if (result.isSuccess) {
+                _operationStatus.value = "Music rejected"
+                musicRepository.refreshPendingMusic()
+            } else {
+                _operationStatus.value = "Failed to reject music"
+            }
+        }
+    }
+
+    fun deleteMusic(musicId: String) {
+        viewModelScope.launch {
+            val result = musicRepository.deleteMusic(musicId)
+            if (result.isSuccess) {
+                _operationStatus.value = "Music deleted"
+                musicRepository.refreshAllMusicAdmin()
+            } else {
+                _operationStatus.value = "Failed to delete music"
+            }
         }
     }
 
     fun approveVerification(userId: String) {
         viewModelScope.launch {
-            userRepository.approveUserVerification(userId)
-            _operationStatus.value = "Verification approved"
-            loadPendingVerifications()
+            val result = userRepository.approveUserVerification(userId)
+            if (result.isSuccess) {
+                _operationStatus.value = "Verification approved"
+                userRepository.refreshPendingVerifications()
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to approve verification"
+            }
         }
     }
 
     fun rejectVerification(userId: String) {
         viewModelScope.launch {
-            userRepository.rejectUserVerification(userId)
-            _operationStatus.value = "Verification rejected"
-            loadPendingVerifications()
+            val result = userRepository.rejectUserVerification(userId)
+            if (result.isSuccess) {
+                _operationStatus.value = "Verification rejected"
+                userRepository.refreshPendingVerifications()
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to reject verification"
+            }
         }
     }
 
     fun featureMusic(music: Music) {
         viewModelScope.launch {
             _currentAdmin.value?.let { admin ->
-                // Use the local file path for the artwork if available
-                val artworkUri = music.artworkUri
-
-                val featured = FeaturedContent(
-                    id = UUID.randomUUID().toString(),
+                val result = featuredContentRepository.createFeaturedContent(
                     title = music.title,
-                    description = null,
-                    imageUrl = artworkUri,
+                    description = music.artist,
                     type = FeaturedType.SONG,
                     contentId = music.id,
-                    createdBy = admin.id,
-                    featuredBy = admin.id,
-                    position = 0
+                    imageUrl = music.artworkUri
                 )
-                featuredContentRepository.insertFeaturedContent(featured)
-                _operationStatus.value = "Featured song: ${music.title}"
-                loadFeaturedContent()
-            } ?: run {
-                _operationStatus.value = "Error: Admin not loaded"
+                if (result.isSuccess) {
+                    _operationStatus.value = "Featured song: ${music.title}"
+                    featuredContentRepository.refreshFeaturedContent()
+                } else {
+                    _operationStatus.value = "Failed to feature music"
+                }
             }
         }
     }
@@ -216,118 +277,65 @@ class AdminViewModel @Inject constructor(
     fun featureArtist(artist: User) {
         viewModelScope.launch {
             _currentAdmin.value?.let { admin ->
-                // Use the local file path for the profile image if available
-                val profileImageUrl = artist.profileImageUrl
-
-                val featured = FeaturedContent(
-                    id = UUID.randomUUID().toString(),
+                val result = featuredContentRepository.createFeaturedContent(
                     title = artist.name,
-                    description = null,
-                    imageUrl = profileImageUrl,
+                    description = "Featured Artist",
                     type = FeaturedType.ARTIST,
                     contentId = artist.id,
-                    createdBy = admin.id,
-                    featuredBy = admin.id,
-                    position = 0
+                    imageUrl = artist.profileImageUrl
                 )
-                featuredContentRepository.insertFeaturedContent(featured)
-                _operationStatus.value = "Featured artist: ${artist.name}"
-                loadFeaturedContent()
-            } ?: run {
-                _operationStatus.value = "Error: Admin not loaded"
-            }
-        }
-    }
-
-    private fun loadFeaturedSongs() {
-        viewModelScope.launch {
-            featuredContentRepository.getAllFeaturedContent().collectLatest { contents ->
-                val songIds = contents.filter { it.type == FeaturedType.SONG }.mapNotNull { it.contentId }
-                val songs = songIds.mapNotNull { id -> musicRepository.getMusicById(id) }
-                _featuredSongs.value = songs
-            }
-        }
-    }
-
-    private fun loadFeaturedArtists() {
-        viewModelScope.launch {
-            featuredContentRepository.getAllFeaturedContent().collectLatest { contents ->
-                val artistIds = contents.filter { it.type == FeaturedType.ARTIST }.mapNotNull { it.contentId }
-                val artists = artistIds.mapNotNull { id -> userRepository.getUserById(id) }
-                _featuredArtists.value = artists
+                if (result.isSuccess) {
+                    _operationStatus.value = "Featured artist: ${artist.name}"
+                    featuredContentRepository.refreshFeaturedContent()
+                } else {
+                    _operationStatus.value = "Failed to feature artist"
+                }
             }
         }
     }
 
     fun createFeaturedBanner(title: String, description: String, imageUrl: String, adminId: String) {
         viewModelScope.launch {
-            val featured = FeaturedContent(
-                id = UUID.randomUUID().toString(),
+            val result = featuredContentRepository.createFeaturedContent(
                 title = title,
                 description = description,
-                imageUrl = imageUrl,
                 type = FeaturedType.BANNER,
                 contentId = null,
-                createdBy = adminId,
-                featuredBy = adminId,
-                position = 0
+                imageUrl = imageUrl
             )
-            featuredContentRepository.insertFeaturedContent(featured)
-            _operationStatus.value = "Featured banner created"
-            loadFeaturedContent()
-        }
-    }
-
-    // New method to save banner image using ImagePickerHelper
-    suspend fun saveBannerImage(context: Context, uri: Uri): String? {
-        try {
-            val fileName = "banner_${System.currentTimeMillis()}.jpg"
-            return ImagePickerHelper.saveImageToInternalStorage(context, uri, fileName)
-        } catch (e: Exception) {
-            Log.e("AdminViewModel", "Error saving banner image: ${e.message}", e)
-            _operationStatus.value = "Error saving image: ${e.message}"
-            return null
-        }
-    }
-
-    fun removeFeaturedContent(id: String) {
-        viewModelScope.launch {
-            featuredContentRepository.removeFeaturedContent(id)
-            _operationStatus.value = "Removed featured content"
-            loadFeaturedContent()
-        }
-    }
-
-    fun makeArtist(userId: String) {
-        viewModelScope.launch {
-            userRepository.promoteUserToArtist(userId)
-            _operationStatus.value = "User promoted to Artist"
-            loadAllUsers()
-        }
-    }
-
-    fun removeArtistFromFeatured(artistId: String) {
-        viewModelScope.launch {
-            val artistContent = _featuredContent.value.find {
-                it.type == FeaturedType.ARTIST && it.contentId == artistId
-            }
-            artistContent?.let {
-                featuredContentRepository.removeFeaturedContent(it.id)
-                _operationStatus.value = "Removed featured artist"
-                loadFeaturedContent()
+            if (result.isSuccess) {
+                _operationStatus.value = "Featured banner created"
+                featuredContentRepository.refreshFeaturedContent()
+            } else {
+                _operationStatus.value = "Failed to create banner"
             }
         }
     }
 
     fun removeFromFeatured(musicId: String) {
         viewModelScope.launch {
-            val songContent = _featuredContent.value.find {
-                it.type == FeaturedType.SONG && it.contentId == musicId
+            _featuredContent.value.find { it.type == FeaturedType.SONG && it.contentId == musicId }?.let {
+                removeFeaturedContent(it.id)
             }
-            songContent?.let {
-                featuredContentRepository.removeFeaturedContent(it.id)
-                _operationStatus.value = "Removed featured song"
-                loadFeaturedContent()
+        }
+    }
+
+    fun removeArtistFromFeatured(artistId: String) {
+        viewModelScope.launch {
+            _featuredContent.value.find { it.type == FeaturedType.ARTIST && it.contentId == artistId }?.let {
+                removeFeaturedContent(it.id)
+            }
+        }
+    }
+
+    fun removeFeaturedContent(id: String) {
+        viewModelScope.launch {
+            val result = featuredContentRepository.removeFeaturedContent(id)
+            if (result.isSuccess) {
+                _operationStatus.value = "Removed featured content"
+                featuredContentRepository.refreshFeaturedContent()
+            } else {
+                _operationStatus.value = "Failed to remove featured content"
             }
         }
     }

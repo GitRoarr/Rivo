@@ -231,6 +231,26 @@ interface ApiService {
 
     @GET("api/stats/admin")
     suspend fun getAdminStats(): Response<AdminStatsResponse>
+
+    // Admin general management
+    @GET("api/users")
+    suspend fun getAllUsers(): Response<List<User>>
+
+    @GET("api/users/verification/pending")
+    suspend fun getUsersAwaitingVerification(): Response<List<User>>
+
+    // Featured Content
+    @GET("api/featured")
+    suspend fun getFeaturedContent(): Response<List<FeaturedContentResponse>>
+
+    @POST("api/featured")
+    suspend fun addFeaturedContent(@Body request: FeaturedContentRequest): Response<FeaturedContentResponse>
+
+    @PUT("api/featured/{id}")
+    suspend fun updateFeaturedContent(@Path("id") id: String, @Body request: FeaturedContentRequest): Response<FeaturedContentResponse>
+
+    @DELETE("api/featured/{id}")
+    suspend fun deleteFeaturedContent(@Path("id") id: String): Response<MessageResponse>
 }
 
 
@@ -407,14 +427,46 @@ data class CreateNotificationRequest(
 data class ArtistStatsResponse(
     val totalPlays: Int,
     val followersCount: Int,
+    val followingCount: Int,
     val totalSongs: Int,
-    val topSongs: List<Music>
+    val topSongs: List<Music>,
+    val recentUploads: List<Music>,
+    val pendingCount: Int,
+    val unreadNotifications: Int
 )
 
 data class AdminStatsResponse(
     val totalUsers: Int,
     val totalArtists: Int,
+    val totalListeners: Int,
     val totalMusic: Int,
+    val totalPlays: Int,
     val pendingApproval: Int,
-    val recentMusic: List<Music>
+    val pendingVerifications: Int,
+    val recentMusic: List<Music>? = null,
+    val recentUsers: List<User>? = null,
+    val newUsersToday: Int,
+    val newMusicToday: Int
+)
+
+data class FeaturedContentResponse(
+    val id: String,
+    val type: String,
+    val contentId: String? = null,
+    val title: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val actionUrl: String? = null,
+    val order: Int = 0,
+    val isActive: Boolean = true
+)
+
+data class FeaturedContentRequest(
+    val type: String,
+    val contentId: String? = null,
+    val title: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val actionUrl: String? = null,
+    val order: Int = 0
 )

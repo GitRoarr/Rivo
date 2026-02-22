@@ -10,8 +10,8 @@ const {
     createNotification
 } = require("../controllers/notificationController")
 const { protect } = require("../middleware/authMiddleware")
-avoid
-// Specific routes first (to  conflict with /:id)
+
+// Specific routes first (to avoid conflict with /:id)
 router.get("/unread-count", protect, getUnreadCount)
 router.put("/read-all", protect, markAllAsRead)
 

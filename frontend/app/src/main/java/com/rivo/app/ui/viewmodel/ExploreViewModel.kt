@@ -7,6 +7,7 @@ import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
 import com.rivo.app.data.remote.BannerItem
+import com.rivo.app.data.remote.ExploreResponse
 import com.rivo.app.data.remote.MusicCategory
 import com.rivo.app.data.repository.FeaturedContentRepository
 import com.rivo.app.data.repository.MusicRepository
@@ -27,6 +28,9 @@ class ExploreViewModel @Inject constructor(
 
     private val _featuredBanner = MutableStateFlow<FeaturedContent?>(null)
     val featuredBanner: StateFlow<FeaturedContent?> = _featuredBanner
+
+    private val _banners = MutableStateFlow<List<BannerItem>>(emptyList())
+    val banners: StateFlow<List<BannerItem>> = _banners
     
     private val _featuredMusic = MutableStateFlow<Music?>(null)
     val featuredMusic: StateFlow<Music?> = _featuredMusic
@@ -70,8 +74,9 @@ class ExploreViewModel @Inject constructor(
                     _artists.value = it.featuredArtists
                     _songs.value = it.featuredMusic
                     _categories.value = it.categories ?: emptyList()
+                    _banners.value = it.banners
                     
-                    // Handle banner
+                    // Handle featured banner (backwards compatibility)
                     if (it.banners.isNotEmpty()) {
                         val firstBanner = it.banners[0]
                         _featuredBanner.value = FeaturedContent(

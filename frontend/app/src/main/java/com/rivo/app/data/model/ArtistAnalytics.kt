@@ -23,15 +23,16 @@ data class ArtistAnalytics(
     @PrimaryKey
     val artistId: String,
     val totalPlays: Int = 0,
+    val totalSongs: Int = 0,
+    val pendingCount: Int = 0,
+    val unreadNotifications: Int = 0,
+    val followersCount: Int = 0,
+    val followingCount: Int = 0,
     val monthlyListeners: Int = 0,
     val playlistAdds: Int = 0,
     val watchlistSaves: Int = 0,
     val uniqueListeners: Int = 0,
     val newFollowers: Int = 0,
-    val averageListenTime: Long = 0, // in seconds
-    val topSongs: Map<String, Int> = emptyMap(), // song name to play count
-    val listenerDemographics: Map<String, Float> = emptyMap(), // region to percentage
-    val playCountByDay: Map<String, Int> = emptyMap(), // date string to play count
     val lastUpdated: Date = Date()
 ) {
     // Empty constructor for Room

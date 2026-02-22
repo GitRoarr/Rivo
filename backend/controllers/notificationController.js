@@ -7,6 +7,7 @@ const Notification = require("../models/notificationModel")
 const getNotifications = asyncHandler(async (req, res) => {
     const notifications = await Notification.find({ user: req.user._id })
         .sort({ createdAt: -1 })
+        .limit(50)
     res.json(notifications)
 })
 
@@ -19,7 +20,7 @@ const getUnreadCount = asyncHandler(async (req, res) => {
 })
 
 // @desc    Mark notification as read
-// @route   PUT /api/notifications/:id/read
+// @route   PUT /api/notifications/:id
 // @access  Private
 const markAsRead = asyncHandler(async (req, res) => {
     const notification = await Notification.findById(req.params.id)
@@ -76,7 +77,7 @@ const clearAllNotifications = asyncHandler(async (req, res) => {
     res.json({ message: "All notifications cleared" })
 })
 
-// @desc    Create a notification (internal use)
+// @desc    Create a notification
 // @route   POST /api/notifications
 // @access  Private
 const createNotification = asyncHandler(async (req, res) => {
@@ -94,6 +95,22 @@ const createNotification = asyncHandler(async (req, res) => {
     res.status(201).json(notification)
 })
 
+// Helper: create notification internally (no HTTP needed)
+const createNotificationInternal = async (userId, type, title, message, relatedId = null) => {
+    try {
+        await Notification.create({
+            user: userId,
+            type,
+            title,
+            message,
+            relatedId,
+            isRead: false
+        })
+    } catch (err) {
+        console.error("Failed to create internal notification:", err.message)
+    }
+}
+
 module.exports = {
     getNotifications,
     getUnreadCount,
@@ -101,5 +118,6 @@ module.exports = {
     markAllAsRead,
     deleteNotification,
     clearAllNotifications,
-    createNotification
+    createNotification,
+    createNotificationInternal
 }

@@ -3,7 +3,6 @@ package com.rivo.app.data.repository
 import com.rivo.app.data.local.ArtistStatsDao
 import com.rivo.app.data.model.AnalyticsPeriod
 import com.rivo.app.data.model.ArtistAnalytics
-import com.rivo.app.data.model.Music
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -35,21 +34,14 @@ class AnalyticsRepository @Inject constructor(
         artistId: String,
         period: AnalyticsPeriod
     ): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
-        val analytics = artistStatsDao.getArtistAnalytics(artistId)
-        analytics
-            ?.topSongs
-            ?.entries
-            ?.sortedByDescending { it.value }
-            ?.map { it.key to it.value }
-            ?: emptyList()
+        // Since topSongs map was removed, return empty list or integrate with real data
+        emptyList()
     }
 
     suspend fun getListenerDemographics(
         artistId: String
     ): Map<String, Float> = withContext(Dispatchers.IO) {
-        artistStatsDao.getArtistAnalytics(artistId)
-            ?.listenerDemographics
-            ?: emptyMap()
+        emptyMap()
     }
 
 
@@ -57,9 +49,7 @@ class AnalyticsRepository @Inject constructor(
         artistId: String,
         period: AnalyticsPeriod
     ): Map<String, Int> = withContext(Dispatchers.IO) {
-        artistStatsDao.getArtistAnalytics(artistId)
-            ?.playCountByDay
-            ?: emptyMap()
+        emptyMap()
     }
 
     suspend fun recordPlay(

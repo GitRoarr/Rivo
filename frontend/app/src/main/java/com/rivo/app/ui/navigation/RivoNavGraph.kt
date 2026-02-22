@@ -4,14 +4,12 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +19,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.rivo.app.data.model.NotificationType
 import com.rivo.app.data.model.UserType
 import com.rivo.app.data.repository.SessionManager
 import com.rivo.app.ui.screens.admin.*
@@ -29,6 +28,7 @@ import com.rivo.app.ui.screens.explore.ExploreScreen
 import com.rivo.app.ui.screens.music.FavoriteScreen
 import com.rivo.app.ui.screens.forgotpassword.ForgotPasswordScreen
 import com.rivo.app.ui.screens.home.HomeScreen
+import com.rivo.app.ui.screens.notification.NotificationScreen
 import com.rivo.app.ui.screens.library.LibraryScreen
 import com.rivo.app.ui.screens.listener.ListenerProfileScreen
 import com.rivo.app.ui.screens.login.LoginScreen
@@ -39,7 +39,7 @@ import com.rivo.app.ui.screens.register.RegisterScreen
 import com.rivo.app.ui.screens.search.SearchScreen
 import com.rivo.app.ui.screens.welcome.WelcomeScreen
 import com.rivo.app.ui.viewmodel.*
-import kotlinx.coroutines.launch
+
 
 @Composable
 fun RivoNavGraph(
@@ -150,6 +150,7 @@ fun RivoNavGraph(
                 musicViewModel = musicViewModel,
                 libraryViewModel = libraryViewModel,
                 sessionViewModel = sessionViewModel,
+                notificationViewModel = notificationViewModel,
                 onMusicClick = { musicId ->
                     musicViewModel.loadMusic(musicId)
                     navController.navigate("${RivoScreens.Player.name}/$musicId")
@@ -190,7 +191,6 @@ fun RivoNavGraph(
                     navController.navigate("${RivoScreens.ArtistDetail.name}/${artist.id}")
                 },
                 onBackClick = { navController.popBackStack() },
-                musicViewModel = musicViewModel,
                 searchViewModel = searchViewModel
             )
         }
@@ -223,6 +223,32 @@ fun RivoNavGraph(
             )
         }
 
+        composable(RivoScreens.Notification.name) {
+            NotificationScreen(
+                onBackClick = { navController.popBackStack() },
+                onNotificationClick = { notification ->
+                    when (notification.type) {
+                        NotificationType.NEW_MUSIC -> {
+                            notification.relatedContentId?.let { id ->
+                                musicViewModel.loadMusic(id)
+                                navController.navigate("${RivoScreens.Player.name}/$id")
+                            }
+                        }
+                        NotificationType.NEW_FOLLOWER -> {
+                            notification.relatedContentId?.let { id ->
+                                navController.navigate("${RivoScreens.ArtistDetail.name}/$id")
+                            }
+                        }
+                        NotificationType.VERIFICATION -> {
+                            navController.navigate(RivoScreens.Profile.name)
+                        }
+                        else -> { /* Do nothing for generic system notifications */ }
+                    }
+                },
+                viewModel = notificationViewModel
+            )
+        }
+
         composable(RivoScreens.Library.name) {
             val currentUser by authViewModel.currentUser.collectAsState()
             val isGuest = currentUser?.userType == UserType.GUEST
@@ -236,8 +262,6 @@ fun RivoNavGraph(
 
             if (!isGuest) {
                 val userId = currentUser?.id ?: return@composable
-                val scope = rememberCoroutineScope()
-                val snackbarHostState = remember { SnackbarHostState() }
 
                 LibraryScreen(
                     libraryViewModel = libraryViewModel,
@@ -252,26 +276,6 @@ fun RivoNavGraph(
                     onMusicClick = { music ->
                         musicViewModel.playMusic(music)
                         navController.navigate("${RivoScreens.Player.name}/${music.id}")
-                    },
-                    onAddToPlaylistClick = { music, playlistId ->
-                        scope.launch {
-                            libraryViewModel.addMusicToLibraryItem(playlistId, music, true)
-                            snackbarHostState.showSnackbar(
-                                message = "Added to playlist",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    },
-                    onRemoveFromWatchlistClick = { musicId, watchlistId ->
-                        scope.launch {
-                            libraryViewModel.removeMusicFromLibraryItem(watchlistId, musicId, false)
-                            musicViewModel.toggleFavorite(musicId)
-                            snackbarHostState.showSnackbar(
-                                message = "Removed from watchlist",
-                                duration = SnackbarDuration.Short
-                            )
-                            musicViewModel.loadFavorites()
-                        }
                     }
                 )
             }

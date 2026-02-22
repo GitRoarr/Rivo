@@ -20,6 +20,8 @@ const {
     unfollowUser,
     getFollowers,
     getFollowing,
+    getAllUsers,
+    getUsersAwaitingVerification,
 } = require("../controllers/userController")
 const { protect, admin } = require("../middleware/authMiddleware")
 const { upload } = require("../config/cloudinary")
@@ -54,6 +56,8 @@ router.get("/:id/verification", protect, getVerificationStatus)
 router.put("/:id/verification", protect, admin, updateVerificationStatus)
 
 // Admin-only management
+router.get("/", protect, admin, getAllUsers)
+router.get("/verification/pending", protect, admin, getUsersAwaitingVerification)
 router.put("/:id/type", protect, admin, updateUserType)
 router.put("/:id/approve", protect, admin, approveArtist)
 router.put("/:id/suspend", protect, admin, suspendUser)

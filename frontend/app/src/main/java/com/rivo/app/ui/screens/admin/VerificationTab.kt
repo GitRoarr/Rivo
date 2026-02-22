@@ -1,16 +1,16 @@
 package com.rivo.app.ui.screens.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +23,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.model.User
-import com.rivo.app.data.model.UserType
 import com.rivo.app.data.model.VerificationStatus
-import com.rivo.app.ui.theme.Primary
+import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.AdminViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -35,366 +33,272 @@ import java.util.*
 @Composable
 fun VerificationTab(
     pendingVerifications: List<User>,
-    featuredArtists: List<User>, // Change from List<String> to List<User>
+    featuredArtists: List<User>,
     onVerificationClick: (String) -> Unit,
     onApproveVerificationClick: (String) -> Unit,
     onRejectVerificationClick: (String) -> Unit,
-    onFeatureArtistClick: (User) -> Unit, // Changed to accept User
+    onFeatureArtistClick: (User) -> Unit,
     onRemoveFromFeaturedClick: (String) -> Unit,
     adminViewModel: AdminViewModel
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var showDropdownMenu by remember { mutableStateOf<String?>(null) }
     var selectedFilter by remember { mutableStateOf("Pending") }
 
-    val horizontalScrollState = rememberScrollState()
+    val filteredRequests = remember(pendingVerifications, searchQuery, selectedFilter) {
+        val base = when (selectedFilter) {
+            "Pending" -> pendingVerifications.filter { it.verificationStatus == VerificationStatus.PENDING }
+            "Approved" -> pendingVerifications.filter { it.verificationStatus == VerificationStatus.VERIFIED }
+            "Rejected" -> pendingVerifications.filter { it.verificationStatus == VerificationStatus.REJECTED }
+            else -> pendingVerifications
+        }
+        if (searchQuery.isBlank()) base
+        else base.filter { 
+            it.name.contains(searchQuery, ignoreCase = true) || 
+            it.email.contains(searchQuery, ignoreCase = true) 
+        }
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(DarkBackground),
+        contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        // Search and filter row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Search bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search verifications...", color = Color.Gray) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.Gray
+        item {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    "Artist Verification",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = White,
+                        fontWeight = FontWeight.Black
                     )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Primary,
-                    unfocusedBorderColor = Color.DarkGray,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Primary,
-                    focusedContainerColor = Color(0xFF1E1E1E),
-                    unfocusedContainerColor = Color(0xFF1E1E1E)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                singleLine = true
-            )
+                )
+                Text(
+                    "${pendingVerifications.size} requests found",
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray)
+                )
 
-            Box {
-                var expanded by remember { mutableStateOf(false) }
+                Spacer(modifier = Modifier.height(20.dp))
 
-                OutlinedButton(
-                    onClick = { expanded = true },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(selectedFilter)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = "Filter"
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(Color(0xFF1E1E1E))
-                ) {
-                    listOf("All", "Pending", "Approved", "Rejected").forEach { filter ->
-                        DropdownMenuItem(
-                            text = { Text(filter, color = Color.White) },
-                            onClick = {
-                                selectedFilter = filter
-                                expanded = false
-                            }
+                    Surface(
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = White.copy(alpha = 0.04f),
+                        border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Search artists...", color = DarkGray, style = MaterialTheme.typography.bodySmall) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedTextColor = White,
+                                unfocusedTextColor = White
+                            )
                         )
+                    }
+
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        Surface(
+                            modifier = Modifier.height(48.dp).clickable { expanded = true },
+                            shape = RoundedCornerShape(12.dp),
+                            color = RivoPurple.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, RivoPurple.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(selectedFilter, color = RivoPurple, style = MaterialTheme.typography.labelMedium)
+                                Icon(Icons.Default.FilterList, null, tint = RivoPurple, modifier = Modifier.size(16.dp).padding(start = 4.dp))
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(Color(0xFF252525))
+                        ) {
+                            listOf("All", "Pending", "Approved", "Rejected").forEach { filter ->
+                                DropdownMenuItem(
+                                    text = { Text(filter, color = White) },
+                                    onClick = { selectedFilter = filter; expanded = false }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(horizontalScrollState),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Artist",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(180.dp).padding(horizontal = 8.dp)
+        items(filteredRequests, key = { it.id }) { user ->
+            AdminVerificationCard(
+                user = user,
+                isFeatured = featuredArtists.any { it.id == user.id },
+                onClick = { onVerificationClick(user.verificationRequestId ?: user.id) },
+                onApprove = { onApproveVerificationClick(user.id) },
+                onReject = { onRejectVerificationClick(user.id) },
+                onFeature = { onFeatureArtistClick(user) },
+                onRemoveFeatured = { onRemoveFromFeaturedClick(user.id) },
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
             )
-
-            Text(
-                text = "Email",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(180.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Submitted",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Location",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Status",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-            )
-
-            Text(
-                text = "Actions",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.width(80.dp).padding(horizontal = 8.dp)
-            )
-        }
-
-        Divider(
-            color = Color.DarkGray,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        // Verification list
-        LazyColumn {
-            val filteredVerifications = pendingVerifications.filter {
-                when (selectedFilter) {
-                    "Pending" -> it.verificationStatus == VerificationStatus.PENDING
-                    "Approved" -> it.verificationStatus == VerificationStatus.VERIFIED
-                    "Rejected" -> it.verificationStatus == VerificationStatus.REJECTED
-                    else -> it.verificationStatus != VerificationStatus.UNVERIFIED
-                }
-            }.filter {
-                if (searchQuery.isBlank()) true
-                else it.name.contains(searchQuery, ignoreCase = true) ||
-                        it.email.contains(searchQuery, ignoreCase = true)
-            }
-
-            items(filteredVerifications) { user ->
-                VerificationListItem(
-                    user = user,
-                    isFeatured = featuredArtists.any { it.id == user.id },
-                    onClick = { onVerificationClick(user.verificationRequestId ?: user.id) },
-                    onMenuClick = { showDropdownMenu = user.id },
-                    showMenu = showDropdownMenu == user.id,
-                    onDismissMenu = { showDropdownMenu = null },
-                    onApproveClick = { onApproveVerificationClick(user.id) },
-                    onRejectClick = { onRejectVerificationClick(user.id) },
-                    onFeatureClick = { onFeatureArtistClick(user) }, // Updated here
-                    onRemoveFromFeaturedClick = { onRemoveFromFeaturedClick(user.id) },
-                    horizontalScrollState = horizontalScrollState
-                )
-
-                Divider(color = Color.DarkGray.copy(alpha = 0.5f))
-            }
         }
     }
 }
 
 @Composable
-fun VerificationListItem(
+private fun AdminVerificationCard(
     user: User,
     isFeatured: Boolean,
     onClick: () -> Unit,
-    onMenuClick: () -> Unit,
-    showMenu: Boolean,
-    onDismissMenu: () -> Unit,
-    onApproveClick: () -> Unit,
-    onRejectClick: () -> Unit,
-    onFeatureClick: () -> Unit,
-    onRemoveFromFeaturedClick: () -> Unit,
-    horizontalScrollState: androidx.compose.foundation.ScrollState
+    onApprove: () -> Unit,
+    onReject: () -> Unit,
+    onFeature: () -> Unit,
+    onRemoveFeatured: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp)
-            .horizontalScroll(horizontalScrollState),
-        verticalAlignment = Alignment.CenterVertically
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = White.copy(alpha = 0.04f),
+        border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
     ) {
-        // Artist name and profile pic
         Row(
-            modifier = Modifier.width(180.dp).padding(horizontal = 8.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray),
+                    .background(White.copy(alpha = 0.06f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (user.profilePictureUrl != null) {
+                if (!user.profileImageUrl.isNullOrEmpty() || !user.profilePictureUrl.isNullOrEmpty()) {
                     AsyncImage(
-                        model = user.profilePictureUrl,
+                        model = user.profileImageUrl ?: user.profilePictureUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Text(
-                        text = user.name.take(1).uppercase(),
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        user.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(color = White, fontWeight = FontWeight.Bold)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = user.name,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    user.name,
+                    style = MaterialTheme.typography.titleSmall.copy(color = White, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                if (user.isVerified) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                Text(
+                    user.email,
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                when (user.verificationStatus) {
+                                    VerificationStatus.PENDING -> WarningYellow.copy(alpha = 0.1f)
+                                    VerificationStatus.VERIFIED -> SuccessGreen.copy(alpha = 0.1f)
+                                    else -> Color.Red.copy(alpha = 0.1f)
+                                }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(14.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(2.dp))
-
                         Text(
-                            text = "Verified",
-                            color = Primary,
-                            fontSize = 12.sp
+                            user.verificationStatus.name,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = when (user.verificationStatus) {
+                                    VerificationStatus.PENDING -> WarningYellow
+                                    VerificationStatus.VERIFIED -> SuccessGreen
+                                    else -> Color.Red
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
                         )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        user.location ?: "Global",
+                        style = MaterialTheme.typography.labelSmall.copy(color = DarkGray)
+                    )
+                }
+            }
+
+            if (user.verificationStatus == VerificationStatus.PENDING) {
+                Row {
+                    IconButton(onClick = onReject) {
+                        Icon(Icons.Default.Close, null, tint = Color.Red.copy(alpha = 0.7f))
+                    }
+                    IconButton(onClick = onApprove) {
+                        Icon(Icons.Default.Check, null, tint = SuccessGreen)
+                    }
+                }
+            } else {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, null, tint = LightGray)
+                    
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF252525))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Review Request", color = White) },
+                            leadingIcon = { Icon(Icons.Outlined.ContentPasteSearch, null, tint = LightGray) },
+                            onClick = { onClick(); showMenu = false }
+                        )
+
+                        if (user.verificationStatus == VerificationStatus.VERIFIED) {
+                            if (isFeatured) {
+                                DropdownMenuItem(
+                                    text = { Text("Remove from Home", color = White) },
+                                    leadingIcon = { Icon(Icons.Default.StarOutline, null, tint = LightGray) },
+                                    onClick = { onRemoveFeatured(); showMenu = false }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Feature Artist", color = Color(0xFFF59E0B)) },
+                                    leadingIcon = { Icon(Icons.Default.Star, null, tint = Color(0xFFF59E0B)) },
+                                    onClick = { onFeature(); showMenu = false }
+                                )
+                            }
+                        }
+
+                        Divider(color = White.copy(alpha = 0.05f))
+
+                        if (user.verificationStatus == VerificationStatus.VERIFIED) {
+                            DropdownMenuItem(
+                                text = { Text("Revoke Verification", color = Color.Red) },
+                                leadingIcon = { Icon(Icons.Default.Undo, null, tint = Color.Red) },
+                                onClick = { onReject(); showMenu = false }
+                            )
+                        }
                     }
                 }
             }
         }
-
-        Text(
-            text = user.email,
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(180.dp).padding(horizontal = 8.dp)
-        )
-
-        Text(
-            text = user.verificationRequestDate?.let { formatDate(it.toString()) } ?: "-",
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-        )
-
-        Text(
-            text = user.location ?: "Unknown",
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(120.dp).padding(horizontal = 8.dp)
-        )
-
-        // Status
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.width(100.dp).padding(horizontal = 8.dp)
-        ) {
-            val statusColor = when (user.verificationStatus) {
-                VerificationStatus.PENDING -> Color(0xFFFF9800) // Orange for pending
-                VerificationStatus.VERIFIED -> Primary
-                VerificationStatus.REJECTED -> Color.Red
-                else -> Color.Gray
-            }
-
-            Text(
-                text = user.verificationStatus.name,
-                color = statusColor,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(end = 4.dp)
-            )
-        }
-
-        // Actions
-        Box(
-            modifier = Modifier.width(80.dp).padding(horizontal = 8.dp),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            IconButton(onClick = onMenuClick) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
-                    tint = Color.White
-                )
-            }
-
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = onDismissMenu,
-                modifier = Modifier.background(Color(0xFF1E1E1E))
-            ) {
-                DropdownMenuItem(
-                    onClick = { onApproveClick() },
-                    text = { Text("Approve", color = Color.White) }
-                )
-                DropdownMenuItem(
-                    onClick = { onRejectClick() },
-                    text = { Text("Reject", color = Color.White) }
-                )
-                DropdownMenuItem(
-                    onClick = {
-                        if (!isFeatured) onFeatureClick() else onRemoveFromFeaturedClick()
-                    },
-                    text = {
-                        Text(
-                            if (isFeatured) "Remove from Featured" else "Feature Artist",
-                            color = Color.White
-                        )
-                    }
-                )
-            }
-        }
-    }
-}
-
-fun formatDate(date: String): String {
-    val inputFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-    val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    val parsedDate = inputFormat.parse(date)
-    return if (parsedDate != null) {
-        outputFormat.format(parsedDate)
-    } else {
-        "-"
     }
 }

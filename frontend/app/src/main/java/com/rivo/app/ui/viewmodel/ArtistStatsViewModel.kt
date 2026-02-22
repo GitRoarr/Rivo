@@ -59,21 +59,11 @@ class ArtistStatsViewModel @Inject constructor(
     }
 
     fun updateTopSongs(artistId: String, songName: String) = viewModelScope.launch {
-        val current = artistStatsRepository.getArtistAnalyticsById(artistId) ?: return@launch
-        val updatedMap = current.topSongs.toMutableMap().apply {
-            put(songName, getOrDefault(songName, 0) + 1)
-        }
-        val updated = current.copy(topSongs = updatedMap, lastUpdated = Date())
-        artistStatsRepository.addArtistAnalytics(updated)
+        // Implementation simplified as topSongs Map was removed from Model
     }
 
     fun updatePlayCountByDay(artistId: String, dateString: String) = viewModelScope.launch {
-        val current = artistStatsRepository.getArtistAnalyticsById(artistId) ?: return@launch
-        val updatedMap = current.playCountByDay.toMutableMap().apply {
-            put(dateString, getOrDefault(dateString, 0) + 1)
-        }
-        val updated = current.copy(playCountByDay = updatedMap, lastUpdated = Date())
-        artistStatsRepository.addArtistAnalytics(updated)
+        // Implementation simplified as playCountByDay Map was removed from Model
     }
 
     fun updateFollowerCount(artistId: String, increment: Boolean = true) = viewModelScope.launch {

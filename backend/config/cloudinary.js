@@ -43,20 +43,17 @@ const storage = new CloudinaryStorage({
             return {
                 folder: 'rivo/audio',
                 resource_type: 'video',
-                allowed_formats: ['mp3', 'wav', 'm4a'],
             };
         } else if (file.fieldname === 'profileImage') {
             return {
                 folder: 'rivo/profiles',
                 resource_type: 'image',
-                allowed_formats: ['jpg', 'png', 'jpeg'],
                 transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face' }],
             };
         } else {
             return {
                 folder: 'rivo/covers',
                 resource_type: 'image',
-                allowed_formats: ['jpg', 'png', 'jpeg'],
                 transformation: [{ width: 500, height: 500, crop: 'limit' }],
             };
         }

@@ -29,6 +29,9 @@ interface FeaturedContentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFeaturedContent(featuredContent: FeaturedContent)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllFeaturedContent(featuredContentList: List<FeaturedContent>)
+
     @Update
     suspend fun updateFeaturedContent(featuredContent: FeaturedContent)
 

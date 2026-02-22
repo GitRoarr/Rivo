@@ -1,7 +1,6 @@
 package com.rivo.app.ui.screens.admin
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +18,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rivo.app.data.model.User
 import com.rivo.app.data.model.UserType
-import com.rivo.app.ui.theme.Primary
+import com.rivo.app.ui.theme.*
 
 @Composable
 fun UsersTab(
@@ -35,301 +33,246 @@ fun UsersTab(
     onFeatureArtist: (User) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var showDropdownMenu by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Search bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search users...", color = Color.Gray) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = Color.Gray
-                )
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Primary,
-                unfocusedBorderColor = Color.DarkGray,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = Primary,
-                focusedContainerColor = Color(0xFF1E1E1E),
-                unfocusedContainerColor = Color(0xFF1E1E1E)
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Table header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Name",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(1f)
-            )
-
-            Text(
-                text = "Email",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(1.5f)
-            )
-
-            Text(
-                text = "Role",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(0.8f)
-            )
-
-            Text(
-                text = "Status",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(0.8f)
-            )
-
-            Text(
-                text = "Actions",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(0.5f)
-            )
+    val filteredUsers = remember(users, searchQuery) {
+        if (searchQuery.isBlank()) users
+        else users.filter { 
+            it.name.contains(searchQuery, ignoreCase = true) || 
+            it.email.contains(searchQuery, ignoreCase = true) 
         }
+    }
 
-        Divider(
-            color = Color.DarkGray,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(DarkBackground),
+        contentPadding = PaddingValues(bottom = 100.dp)
+    ) {
+        item {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    "User Management",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        color = White,
+                        fontWeight = FontWeight.Black
+                    )
+                )
+                Text(
+                    "${users.size} registered accounts",
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray)
+                )
 
-        // User list
-        LazyColumn {
-            val filteredUsers = if (searchQuery.isBlank()) {
-                users
-            } else {
-                users.filter {
-                    it.name.contains(searchQuery, ignoreCase = true) ||
-                            it.email.contains(searchQuery, ignoreCase = true)
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Modern Search Bar
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = White.copy(alpha = 0.04f),
+                    border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Search by name or email...", color = DarkGray, style = MaterialTheme.typography.bodyMedium) },
+                            leadingIcon = { Icon(Icons.Default.Search, null, tint = LightGray, modifier = Modifier.size(20.dp)) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedTextColor = White,
+                                unfocusedTextColor = White
+                            ),
+                            singleLine = true
+                        )
+                    }
                 }
             }
+        }
 
-            items(filteredUsers) { user ->
-                UserListItem(
-                    user = user,
-                    onClick = { onUserClick(user) },
-                    onMenuClick = { showDropdownMenu = user.id },
-                    showMenu = showDropdownMenu == user.id,
-                    onDismissMenu = { showDropdownMenu = null },
-                    onSuspendUser = { onSuspendUser(user.id) },
-                    onMakeAdmin = { onMakeAdmin(user.id) },
-                    onMakeArtist = { onMakeArtist(user.id) },
-                    onFeatureArtist = { onFeatureArtist(user) }
-                )
-
-                Divider(color = Color.DarkGray.copy(alpha = 0.5f))
-            }
+        items(filteredUsers, key = { it.id }) { user ->
+            AdminUserCard(
+                user = user,
+                onClick = { onUserClick(user) },
+                onSuspendUser = { onSuspendUser(user.id) },
+                onMakeAdmin = { onMakeAdmin(user.id) },
+                onMakeArtist = { onMakeArtist(user.id) },
+                onFeatureArtist = { onFeatureArtist(user) },
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+            )
         }
     }
 }
 
 @Composable
-fun UserListItem(
+private fun AdminUserCard(
     user: User,
     onClick: () -> Unit,
-    onMenuClick: () -> Unit,
-    showMenu: Boolean,
-    onDismissMenu: () -> Unit,
     onSuspendUser: () -> Unit,
     onMakeAdmin: () -> Unit,
     onMakeArtist: () -> Unit,
-    onFeatureArtist: () -> Unit
+    onFeatureArtist: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = White.copy(alpha = 0.04f),
+        border = BorderStroke(1.dp, White.copy(alpha = 0.06f))
     ) {
-        // User avatar and name
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Avatar
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(Color.DarkGray),
+                    .background(White.copy(alpha = 0.06f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (user.profilePictureUrl != null) {
+                if (!user.profileImageUrl.isNullOrEmpty() || !user.profilePictureUrl.isNullOrEmpty()) {
                     AsyncImage(
-                        model = user.profilePictureUrl,
+                        model = user.profileImageUrl ?: user.profilePictureUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Text(
-                        text = user.name.take(1).uppercase(),
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = user.name,
-                color = Color.White,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // Email
-        Text(
-            text = user.email,
-            color = Color.White,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1.5f)
-        )
-
-        // Role
-        Text(
-            text = when (user.userType) {
-                UserType.ADMIN -> "admin"
-                UserType.ARTIST -> "artist"
-                UserType.LISTENER -> "listener"
-                UserType.GUEST -> "guest"
-            },
-            color = when (user.userType) {
-                UserType.ADMIN -> Color.Red
-                UserType.ARTIST -> Primary
-                UserType.LISTENER -> Color.Gray
-                UserType.GUEST -> Color.LightGray
-            },
-            fontSize = 14.sp,
-            modifier = Modifier.weight(0.8f)
-        )
-
-        // Status
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(0.8f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (user.isActive) Primary else Color.Red)
-            )
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            Text(
-                text = if (user.isActive) "Active" else "Suspended",
-                color = Color.White,
-                fontSize = 14.sp
-            )
-        }
-
-        // Actions
-        Box(
-            modifier = Modifier.weight(0.5f)
-        ) {
-            IconButton(
-                onClick = onMenuClick
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More Options",
-                    tint = Color.White
-                )
-            }
-
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = onDismissMenu,
-                modifier = Modifier.background(Color(0xFF1E1E1E))
-            ) {
-                DropdownMenuItem(
-                    text = { Text("View Profile", color = Color.White) },
-                    onClick = {
-                        onClick()
-                        onDismissMenu()
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = { Text("Edit User", color = Color.White) },
-                    onClick = {
-                        // Navigate to edit user screen
-                        onDismissMenu()
-                    }
-                )
-
-                if (user.userType != UserType.ADMIN) {
-                    DropdownMenuItem(
-                        text = { Text("Make Admin", color = Color.White) },
-                        onClick = {
-                            onMakeAdmin()
-                            onDismissMenu()
-                        }
+                        user.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(color = White, fontWeight = FontWeight.Bold)
                     )
                 }
 
-                if (user.userType != UserType.ARTIST) {
-                    DropdownMenuItem(
-                        text = { Text("Make Artist", color = Color.White) },
-                        onClick = {
-                            onMakeArtist()
-                            onDismissMenu()
-                        }
-                    )
-                }
-
-                if (user.userType == UserType.ARTIST && user.isVerified) {
-                    DropdownMenuItem(
-                        text = { Text("Feature on Homepage", color = Color(0xFFFFD700)) },
-                        onClick = {
-                            onFeatureArtist()
-                            onDismissMenu()
-                        }
-                    )
-                }
-
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = if (user.isActive) "Suspend User" else "Activate User",
-                            color = if (user.isActive) Color.Red else Primary
+                // Role indicator
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (user.userType) {
+                                UserType.ADMIN -> Color.Red
+                                UserType.ARTIST -> RivoBlue
+                                else -> SuccessGreen
+                            }
                         )
-                    },
-                    onClick = {
-                        onSuspendUser()
-                        onDismissMenu()
-                    }
+                        .border(2.dp, DarkBackground, CircleShape)
+                        .align(Alignment.BottomEnd)
                 )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    user.name,
+                    style = MaterialTheme.typography.titleSmall.copy(color = White, fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    user.email,
+                    style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                when (user.userType) {
+                                    UserType.ADMIN -> Color.Red.copy(alpha = 0.1f)
+                                    UserType.ARTIST -> RivoBlue.copy(alpha = 0.1f)
+                                    else -> White.copy(alpha = 0.06f)
+                                }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            user.userType.name,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = when (user.userType) {
+                                    UserType.ADMIN -> Color.Red
+                                    UserType.ARTIST -> RivoBlue
+                                    else -> LightGray
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                    if (user.isSuspended) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "SUSPENDED",
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Red, fontWeight = FontWeight.Black)
+                        )
+                    }
+                }
+            }
+
+            // Quick Actions or Menu
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Default.MoreVert, null, tint = LightGray)
+                
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(Color(0xFF252525))
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("View Profile", color = White) },
+                        leadingIcon = { Icon(Icons.Default.Visibility, null, tint = LightGray) },
+                        onClick = { onClick(); showMenu = false }
+                    )
+                    
+                    if (user.userType != UserType.ADMIN) {
+                        DropdownMenuItem(
+                            text = { Text("Make Admin", color = White) },
+                            leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null, tint = LightGray) },
+                            onClick = { onMakeAdmin(); showMenu = false }
+                        )
+                    }
+                    
+                    if (user.userType != UserType.ARTIST) {
+                        DropdownMenuItem(
+                            text = { Text("Promote to Artist", color = White) },
+                            leadingIcon = { Icon(Icons.Default.Mic, null, tint = LightGray) },
+                            onClick = { onMakeArtist(); showMenu = false }
+                        )
+                    }
+
+                    if (user.userType == UserType.ARTIST) {
+                        DropdownMenuItem(
+                            text = { Text("Feature Artist", color = RivoBlue) },
+                            leadingIcon = { Icon(Icons.Default.Star, null, tint = RivoBlue) },
+                            onClick = { onFeatureArtist(); showMenu = false }
+                        )
+                    }
+
+                    Divider(color = White.copy(alpha = 0.05f))
+
+                    DropdownMenuItem(
+                        text = { 
+                            Text(
+                                if (user.isSuspended) "Unsuspend User" else "Suspend User", 
+                                color = if (user.isSuspended) SuccessGreen else Color.Red 
+                            ) 
+                        },
+                        leadingIcon = { 
+                            Icon(
+                                if (user.isSuspended) Icons.Default.CheckCircle else Icons.Default.Block, 
+                                null, 
+                                tint = if (user.isSuspended) SuccessGreen else Color.Red
+                            ) 
+                        },
+                        onClick = { onSuspendUser(); showMenu = false }
+                    )
+                }
             }
         }
     }

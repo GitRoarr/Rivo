@@ -24,7 +24,7 @@ import com.rivo.app.data.model.*
 
 
     ],
-    version = 23,
+    version = 25,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

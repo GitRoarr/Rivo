@@ -56,8 +56,8 @@ class ArtistViewModel @Inject constructor(
     private val _operationStatus = MutableStateFlow<String?>(null)
     val operationStatus: StateFlow<String?> = _operationStatus.asStateFlow()
 
-    private val _selectedTab = MutableStateFlow(DashboardTab.UPLOAD_MUSIC)
-    val selectedTab: StateFlow<DashboardTab> = _selectedTab.asStateFlow()
+    private val _selectedTab = MutableStateFlow(ArtistDashboardTab.UPLOAD_MUSIC)
+    val selectedTab: StateFlow<ArtistDashboardTab> = _selectedTab.asStateFlow()
 
     init {
         loadArtists()
@@ -74,7 +74,7 @@ class ArtistViewModel @Inject constructor(
         }
     }
 
-    fun setSelectedTab(tab: DashboardTab) {
+    fun setSelectedTab(tab: ArtistDashboardTab) {
         _selectedTab.value = tab
     }
 
@@ -97,32 +97,32 @@ class ArtistViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Collect the flow and update _artistAnalytics
+                // Initial load from Local DB
                 artistStatsRepository.getArtistAnalytics(artistId).collectLatest { analytics ->
                     if (analytics != null) {
                         _artistAnalytics.value = analytics
-                    } else {
-                        val defaultAnalytics = ArtistAnalytics(
-                            artistId = artistId,
-                            totalPlays = 0,
-                            monthlyListeners = 0,
-                            playlistAdds = 0,
-                            watchlistSaves = 0
-                        )
-                        artistStatsRepository.addArtistAnalytics(defaultAnalytics)
-                        _artistAnalytics.value = defaultAnalytics
                     }
                 }
             } catch (e: Exception) {
-                Log.e("ArtistViewModel", "Error loading analytics: ${e.message}", e)
-                _operationStatus.value = "Failed to load analytics: ${e.message}"
+                Log.e("ArtistViewModel", "Error loading local analytics", e)
+            }
+        }
+
+        viewModelScope.launch {
+            // Refresh from Backend
+            artistStatsRepository.refreshArtistStats().onSuccess { analytics ->
+                // Update with correct artist ID before saving
+                val analyticsWithId = analytics.copy(artistId = artistId)
+                artistStatsRepository.addArtistAnalytics(analyticsWithId)
+            }.onFailure { e ->
+                Log.e("ArtistViewModel", "Error refreshing backend stats", e)
             }
         }
     }
 
     fun updateArtistApprovalStatus(artistId: String, approved: Boolean) {
         viewModelScope.launch {
-            userRepository.updateArtistApprovalStatus(artistId, approved)
+            userRepository.approveArtist(artistId, approved)
             loadArtists()
         }
     }
@@ -194,7 +194,7 @@ class ArtistViewModel @Inject constructor(
                     _operationStatus.value = "Music uploaded successfully"
                     
                     // Switch to My Music tab after successful upload
-                    _selectedTab.value = DashboardTab.MY_MUSIC
+                    _selectedTab.value = ArtistDashboardTab.MY_MUSIC
                     loadArtistData(artist.id)
                 } else {
                     val error = result.exceptionOrNull()?.message ?: "Unknown error"
@@ -235,6 +235,6 @@ class ArtistViewModel @Inject constructor(
     }
 }
 
-enum class DashboardTab {
+enum class ArtistDashboardTab {
     UPLOAD_MUSIC, MY_MUSIC, ANALYTICS
 }

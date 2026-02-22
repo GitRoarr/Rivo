@@ -154,8 +154,9 @@ fun PlaylistHeader(pwm: PlaylistWithMusic) {
             )
         }
         
+        val totalDuration = formatTotalDuration(pwm.musicList)
         Text(
-            text = "${pwm.musicList.size} tracks • 2 hours", // Placeholder duration
+            text = "${pwm.musicList.size} tracks • $totalDuration",
             style = MaterialTheme.typography.labelMedium.copy(color = RivoPink, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(top = 12.dp)
         )
@@ -199,3 +200,15 @@ fun PlaylistHeader(pwm: PlaylistWithMusic) {
 
 // Helper for TextAlign
 private val TextAlign = androidx.compose.ui.text.style.TextAlign
+
+private fun formatTotalDuration(musicList: List<Music>): String {
+    val totalMs = musicList.sumOf { it.duration }
+    val totalSeconds = totalMs / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    
+    return when {
+        hours > 0 -> "$hours hr $minutes min"
+        else -> "$minutes min"
+    }
+}
