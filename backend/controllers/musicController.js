@@ -50,35 +50,51 @@ const getMusicById = asyncHandler(async (req, res) => {
 const uploadMusic = asyncHandler(async (req, res) => {
     const { title, genre, album, duration } = req.body
 
+    console.log("Music upload request received:", { title, genre, album, duration })
+
     if (!title || !genre) {
         res.status(400)
         throw new Error("Please provide title and genre")
     }
 
     // Get URLs from uploaded files
-    console.log("Uploaded files:", req.files);
+    if (req.files) {
+        console.log("Uploaded files:", req.files);
+    } else {
+        console.log("No files received in request");
+    }
 
     const audioUrl = req.files && req.files.audio ? req.files.audio[0].path : null
     const coverImageUrl = req.files && req.files.coverImage ? req.files.coverImage[0].path : ""
 
     if (!audioUrl) {
+        console.error("Audio file missing in upload request");
         res.status(400)
         throw new Error("Please upload an audio file")
     }
+
+    console.log("Creating music entry with:", {
+        title,
+        artist: req.user._id,
+        artistName: req.user.name,
+        audioUrl,
+        coverImageUrl
+    })
 
     const music = await Music.create({
         title,
         artist: req.user._id,
         artistName: req.user.name,
         genre,
-        album,
+        album: album || "Single",
         url: audioUrl,
         coverImageUrl,
-        duration,
+        duration: duration || 0,
         isApproved: req.user.userType === "ADMIN" // Admins' uploads are auto-approved
     })
 
     if (music) {
+        console.log("Music created successfully:", music._id)
         res.status(201).json(music)
     } else {
         res.status(400)

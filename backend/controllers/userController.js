@@ -95,11 +95,16 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }
 })
 
-
 const updateUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id)
 
     if (user) {
+        console.log("Profile update request for:", user._id)
+        if (req.files) {
+            console.log("Files received:", req.files)
+        }
+        console.log("Body received:", req.body)
+
         user.fullName = req.body.fullName || user.fullName
         user.bio = req.body.bio !== undefined ? req.body.bio : user.bio
         user.location = req.body.location || user.location
@@ -108,6 +113,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         // Handle profile image upload
         if (req.files && req.files.profileImage) {
             user.profileImageUrl = req.files.profileImage[0].path
+            console.log("Updated profile image URL:", user.profileImageUrl)
         } else if (req.body.profileImageUrl) {
             user.profileImageUrl = req.body.profileImageUrl
         }
@@ -115,6 +121,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         // Handle cover image upload
         if (req.files && req.files.coverImage) {
             user.coverImageUrl = req.files.coverImage[0].path
+            console.log("Updated cover image URL:", user.coverImageUrl)
         } else if (req.body.coverImageUrl) {
             user.coverImageUrl = req.body.coverImageUrl
         }
@@ -124,6 +131,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         }
 
         const updatedUser = await user.save()
+        console.log("User updated successfully:", updatedUser._id)
 
         res.json({
             id: updatedUser._id,
@@ -132,11 +140,14 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             fullName: updatedUser.fullName,
             userType: updatedUser.userType,
             bio: updatedUser.bio,
-            location: updatedUser.location,
-            website: updatedUser.website,
             profileImageUrl: updatedUser.profileImageUrl,
             coverImageUrl: updatedUser.coverImageUrl,
+            location: updatedUser.location,
+            website: updatedUser.website,
             verificationStatus: updatedUser.verificationStatus,
+            isApproved: updatedUser.isApproved,
+            isSuspended: updatedUser.isSuspended,
+            createdAt: updatedUser.createdAt
         })
     } else {
         res.status(404)
@@ -187,7 +198,7 @@ const deleteUser = asyncHandler(async (req, res) => {
         throw new Error("Not authorized to delete this user")
     }
 
-    await user.remove()
+    await user.deleteOne()
 
     res.json({ message: "User removed" })
 })
