@@ -19,10 +19,10 @@ import androidx.room.PrimaryKey
 data class Playlist(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
-    val name: String,
+    val name: String? = "",
     val description: String = "",
     val coverArtUrl: String? = null,
-    val createdBy: String,
+    val createdBy: String? = "",
     val isPublic: Boolean = true
 ) {
     constructor() : this(

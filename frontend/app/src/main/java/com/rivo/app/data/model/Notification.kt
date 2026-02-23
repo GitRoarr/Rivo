@@ -16,12 +16,12 @@ enum class NotificationType {
 @Entity(tableName = "notifications")
 data class Notification(
     @PrimaryKey
-    val id: String,
-    val userId: String,
-    val title: String,
-    val message: String,
-    val type: NotificationType,
-    val timestamp: Date,
+    val id: String = "",
+    val userId: String = "",
+    val title: String = "",
+    val message: String = "",
+    val type: NotificationType = NotificationType.SYSTEM,
+    val timestamp: Date = Date(),
     val isRead: Boolean = false,
     val relatedContentId: String? = null,
     val relatedContentType: String? = null,

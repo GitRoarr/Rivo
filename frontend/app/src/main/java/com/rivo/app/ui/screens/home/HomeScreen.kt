@@ -60,6 +60,7 @@ fun HomeScreen(
     val trendingMusic   by exploreViewModel.trendingMusic.collectAsState()
     val featuredArtists by exploreViewModel.featuredArtists.collectAsState()
     val newReleases     by exploreViewModel.newReleases.collectAsState()
+    val songs           by exploreViewModel.songs.collectAsState()
     val isLoading       by exploreViewModel.isLoading.collectAsState()
     val featuredBanner  by exploreViewModel.featuredBanner.collectAsState()
     val categories      by exploreViewModel.categories.collectAsState()
@@ -183,14 +184,11 @@ fun HomeScreen(
                     }
                 }
 
-                // Quick Actions
-                item { QuickActionRow() }
-
                 // ── Trending Now ─────────────────────────────────────────
                 if (trendingMusic.isNotEmpty()) {
                     item {
                         RivoPulsingHeader(
-                            title = "🔥 Trending Now",
+                            title = "Trending Now",
                             subtitle = "Global chart-toppers on Rivo",
                             onSeeAllClick = { onSeeAllClick("trending") }
                         )
@@ -217,7 +215,7 @@ fun HomeScreen(
                 if (featuredArtists.isNotEmpty()) {
                     item {
                         RivoPulsingHeader(
-                            title = "✨ Featured Artists",
+                            title = "Featured Artists",
                             subtitle = "Rising stars you need to hear",
                             onSeeAllClick = { onSeeAllClick("artists") }
                         )
@@ -241,11 +239,38 @@ fun HomeScreen(
                     }
                 }
 
+                // ── Recommended Songs ────────────────────────────────────
+                if (songs.isNotEmpty()) {
+                    item {
+                        RivoPulsingHeader(
+                            title = "Top Songs",
+                            subtitle = "Curated picks just for you",
+                            onSeeAllClick = { onSeeAllClick("songs") }
+                        )
+                    }
+                    item {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            itemsIndexed(songs) { index, music ->
+                                AnimatedMusicCardEntry(index) {
+                                    TrendingMusicCard(
+                                        music = music,
+                                        rank = index + 1,
+                                        onClick = { onMusicClick(music.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // ── Fresh Hits ────────────────────────────────────────────
                 if (newReleases.isNotEmpty()) {
                     item {
                         RivoPulsingHeader(
-                            title = "💿 Fresh Hits",
+                            title = "Fresh Hits",
                             subtitle = "Hot off the press from creators",
                             onSeeAllClick = onSeeAllNewReleasesClick
                         )
@@ -262,7 +287,7 @@ fun HomeScreen(
                 }
 
                 // ── Empty state if everything is empty post-load ────────
-                if (!isLoading && trendingMusic.isEmpty() && featuredArtists.isEmpty() && newReleases.isEmpty()) {
+                if (!isLoading && trendingMusic.isEmpty() && featuredArtists.isEmpty() && newReleases.isEmpty() && songs.isEmpty()) {
                     item { RivoEmptyState() }
                 }
             }

@@ -448,7 +448,7 @@ fun BannerItem(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = banner.title,
+                    text = banner.title ?: "",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -592,14 +592,14 @@ fun FeaturedSongItem(
                     .padding(horizontal = 12.dp)
             ) {
                 Text(
-                    text = music.title,
+                    text = music.title ?: "",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
 
                 Text(
-                    text = music.artist,
+                    text = music.artist ?: "",
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
@@ -750,7 +750,7 @@ fun FeaturedArtistItem(
                     // Case 3: Fallback to initial letter
                     else -> {
                         Text(
-                            text = artist.name.take(1).uppercase(),
+                            text = (artist.name ?: "").take(1).uppercase(),
                             color = Color.White,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold
@@ -766,7 +766,7 @@ fun FeaturedArtistItem(
                     .padding(horizontal = 12.dp)
             ) {
                 Text(
-                    text = artist.name,
+                    text = artist.name ?: "",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
@@ -780,7 +780,7 @@ fun FeaturedArtistItem(
 
                 if (featuredArtist.description != null) {
                     Text(
-                        text = featuredArtist.description,
+                        text = featuredArtist.description ?: "",
                         color = Color.Gray,
                         fontSize = 12.sp,
                         maxLines = 1,
@@ -944,8 +944,8 @@ fun AddFeaturedSongDialog(
         songs
     } else {
         songs.filter {
-            it.title.contains(searchQuery, ignoreCase = true) ||
-                    it.artist.contains(searchQuery, ignoreCase = true)
+            (it.title ?: "").contains(searchQuery, ignoreCase = true) ||
+                    (it.artist ?: "").contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -1040,13 +1040,13 @@ fun AddFeaturedSongDialog(
                                     .padding(start = 8.dp)
                             ) {
                                 Text(
-                                    text = song.title,
+                                    text = song.title ?: "",
                                     color = Color.White,
                                     fontSize = 14.sp
                                 )
 
                                 Text(
-                                    text = song.artist,
+                                    text = song.artist ?: "",
                                     color = Color.Gray,
                                     fontSize = 12.sp
                                 )
@@ -1126,7 +1126,7 @@ fun AddFeaturedArtistDialog(
     val filteredArtists = if (searchQuery.isBlank()) {
         artists
     } else {
-        artists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        artists.filter { (it.name ?: "").contains(searchQuery, ignoreCase = true) }
     }
 
     AlertDialog(
@@ -1193,7 +1193,7 @@ fun AddFeaturedArtistDialog(
                                                 .diskCachePolicy(CachePolicy.ENABLED)
                                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                                 .build(),
-                                            contentDescription = artist.name,
+                                            contentDescription = artist.name ?: "",
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
@@ -1207,7 +1207,7 @@ fun AddFeaturedArtistDialog(
                                                 .diskCachePolicy(CachePolicy.ENABLED)
                                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                                 .build(),
-                                            contentDescription = artist.name,
+                                            contentDescription = artist.name ?: "",
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
@@ -1215,7 +1215,7 @@ fun AddFeaturedArtistDialog(
                                     // Case 3: Fallback to initial letter
                                     else -> {
                                         Text(
-                                            text = artist.name.take(1).uppercase(),
+                                            text = (artist.name ?: "").take(1).uppercase(),
                                             color = Color.White,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.Bold
@@ -1230,7 +1230,7 @@ fun AddFeaturedArtistDialog(
                                     .padding(start = 8.dp)
                             ) {
                                 Text(
-                                    text = artist.name,
+                                    text = artist.name ?: "",
                                     color = Color.White,
                                     fontSize = 14.sp
                                 )

@@ -27,15 +27,12 @@ class FollowRepository @Inject constructor(
                     createdAt = Date()
                 )
                 followDao.follow(follow)
+            } else {
+                throw Exception(response.errorBody()?.string() ?: "Failed to follow artist")
             }
         } catch (e: Exception) {
-            // Log or handle error, maybe still save locally?
-            val follow = Follow(
-                followerId = userId,
-                followingId = artistId,
-                createdAt = Date()
-            )
-            followDao.follow(follow)
+            // Only backend-approved follows are stored locally
+            throw e
         }
     }
 
@@ -44,9 +41,12 @@ class FollowRepository @Inject constructor(
             val response = apiService.unfollowUser(artistId)
             if (response.isSuccessful) {
                 followDao.unfollowByIds(userId, artistId)
+            } else {
+                throw Exception(response.errorBody()?.string() ?: "Failed to unfollow artist")
             }
         } catch (e: Exception) {
-            followDao.unfollowByIds(userId, artistId)
+            // Do not mutate local state if backend unfollow fails
+            throw e
         }
     }
 

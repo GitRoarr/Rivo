@@ -24,53 +24,73 @@ class Converters {
     }
 
     @TypeConverter
-    fun fromUserType(userType: UserType): String {
-        return userType.name
+    fun fromUserType(userType: UserType?): String {
+        return userType?.name ?: UserType.LISTENER.name
     }
 
     @TypeConverter
-    fun toUserType(userType: String): UserType {
-        return UserType.valueOf(userType)
+    fun toUserType(userType: String?): UserType {
+        return try {
+            userType?.let { UserType.valueOf(it) } ?: UserType.LISTENER
+        } catch (e: Exception) {
+            UserType.LISTENER
+        }
     }
 
     @TypeConverter
-    fun fromVerificationStatus(status: VerificationStatus): String {
-        return status.name
+    fun fromVerificationStatus(status: VerificationStatus?): String {
+        return status?.name ?: VerificationStatus.UNVERIFIED.name
     }
 
     @TypeConverter
-    fun toVerificationStatus(status: String): VerificationStatus {
-        return VerificationStatus.valueOf(status)
+    fun toVerificationStatus(status: String?): VerificationStatus {
+        return try {
+            status?.let { VerificationStatus.valueOf(it) } ?: VerificationStatus.UNVERIFIED
+        } catch (e: Exception) {
+            VerificationStatus.UNVERIFIED
+        }
     }
 
     @TypeConverter
-    fun fromMusicApprovalStatus(status: MusicApprovalStatus): String {
-        return status.name
+    fun fromMusicApprovalStatus(status: MusicApprovalStatus?): String {
+        return status?.name ?: MusicApprovalStatus.PENDING.name
     }
 
     @TypeConverter
-    fun toMusicApprovalStatus(status: String): MusicApprovalStatus {
-        return MusicApprovalStatus.valueOf(status)
+    fun toMusicApprovalStatus(status: String?): MusicApprovalStatus {
+        return try {
+            status?.let { MusicApprovalStatus.valueOf(it) } ?: MusicApprovalStatus.PENDING
+        } catch (e: Exception) {
+            MusicApprovalStatus.PENDING
+        }
     }
 
     @TypeConverter
-    fun fromNotificationType(type: NotificationType): String {
-        return type.name
+    fun fromNotificationType(type: NotificationType?): String {
+        return type?.name ?: NotificationType.SYSTEM.name
     }
 
     @TypeConverter
-    fun toNotificationType(type: String): NotificationType {
-        return NotificationType.valueOf(type)
+    fun toNotificationType(type: String?): NotificationType {
+        return try {
+            type?.let { NotificationType.valueOf(it) } ?: NotificationType.SYSTEM
+        } catch (e: Exception) {
+            NotificationType.SYSTEM
+        }
     }
 
     @TypeConverter
-    fun fromFeaturedType(type: FeaturedType): String {
-        return type.name
+    fun fromFeaturedType(type: FeaturedType?): String {
+        return type?.name ?: FeaturedType.SONG.name
     }
 
     @TypeConverter
-    fun toFeaturedType(type: String): FeaturedType {
-        return FeaturedType.valueOf(type)
+    fun toFeaturedType(type: String?): FeaturedType {
+        return try {
+            type?.let { FeaturedType.valueOf(it) } ?: FeaturedType.SONG
+        } catch (e: Exception) {
+            FeaturedType.SONG
+        }
     }
 
     @TypeConverter

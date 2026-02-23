@@ -53,8 +53,8 @@ fun MusicTab(
         }
         if (searchQuery.isBlank()) base
         else base.filter { 
-            it.title.contains(searchQuery, ignoreCase = true) || 
-            it.artist.contains(searchQuery, ignoreCase = true) 
+            (it.title ?: "").contains(searchQuery, ignoreCase = true) || 
+            (it.artist ?: "").contains(searchQuery, ignoreCase = true) 
         }
     }
 
@@ -217,13 +217,13 @@ private fun AdminMusicCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    music.title,
+                    music.title ?: "",
                     style = MaterialTheme.typography.titleSmall.copy(color = White, fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    music.artist,
+                    music.artist ?: "",
                     style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

@@ -15,6 +15,7 @@ import com.rivo.app.data.repository.MusicRepository
 import com.rivo.app.utils.SimpleMediaAccessHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -73,6 +74,9 @@ class MusicViewModel @Inject constructor(
     // Add debug state to track music path
     private val _debugInfo = MutableStateFlow<String?>(null)
     val debugInfo: StateFlow<String?> = _debugInfo.asStateFlow()
+
+    // Tracks whether we've already recorded a qualifying play for the current track
+    private var playCountJob: Job? = null
 
     private val playbackStateListener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
@@ -237,7 +241,6 @@ class MusicViewModel @Inject constructor(
                     _debugInfo.value = "Path: ${music.path?.take(50)}..."
 
                     playMusic(music)
-                    musicRepository.incrementPlayCount(musicId)
                 } else {
                     Log.e("MusicViewModel", "Music not found with ID: $musicId")
                     _error.value = "Music not found"
@@ -294,12 +297,36 @@ class MusicViewModel @Inject constructor(
                 _isLoading.value = false
             }
 
-            viewModelScope.launch {
+            // Start a job that will record a play only after at least 45 seconds
+            // of listening for this specific track (and only once per user).
+            playCountJob?.cancel()
+            playCountJob = viewModelScope.launch {
+                val trackId = music.id
+                val thresholdMs = 45_000L
+
                 try {
-                    musicRepository.incrementPlayCountIfFirstTime(music.id)
-                    artistStatsRepository.incrementArtistPlayCount(music.artistId)
+                    while (true) {
+                        delay(1000)
+
+                        // Stop if user changed tracks or playback stopped
+                        val current = _currentMusic.value ?: break
+                        if (current.id != trackId || !_isPlaying.value) {
+                            continue
+                        }
+
+                        val position = exoPlayer.currentPosition
+                        if (position >= thresholdMs) {
+                            try {
+                                musicRepository.incrementPlayCountIfFirstTime(trackId)
+                                artistStatsRepository.incrementArtistPlayCount(current.artistId ?: "")
+                            } catch (e: Exception) {
+                                Log.e("MusicViewModel", "Error updating play stats after threshold: ${e.message}")
+                            }
+                            break
+                        }
+                    }
                 } catch (e: Exception) {
-                    Log.e("MusicViewModel", "Error updating play stats: ${e.message}")
+                    Log.e("MusicViewModel", "Play count job error: ${e.message}")
                 }
             }
 

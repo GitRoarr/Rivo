@@ -43,8 +43,8 @@ data class FeaturedContent(
     val featuredBy: String,
     val position: Int = 0,
     val isActive: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val createdAt: java.util.Date = java.util.Date(),
+    val updatedAt: java.util.Date = java.util.Date()
 ) {
     constructor() : this(
         id = "",

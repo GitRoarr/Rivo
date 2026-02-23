@@ -21,12 +21,12 @@ data class Watchlist(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
-    val name: String,
+    val name: String? = null,
 
-    val description: String,
+    val description: String? = null,
 
     @ColumnInfo(name = "createdBy")
-    val createdBy: String
+    val createdBy: String? = null
 ) {
     constructor() : this(
         name = "",

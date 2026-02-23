@@ -162,7 +162,7 @@ private fun BannerCard(banner: BannerItem, scale: Float, onExploreClick: (String
             GlowingPill(text = "FEATURED")
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = banner.title,
+                text = banner.title ?: "",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     color = White,
                     fontWeight = FontWeight.ExtraBold,
@@ -172,7 +172,7 @@ private fun BannerCard(banner: BannerItem, scale: Float, onExploreClick: (String
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = banner.subtitle,
+                text = banner.subtitle ?: "",
                 style = MaterialTheme.typography.bodyMedium.copy(color = White.copy(0.75f)),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -413,13 +413,13 @@ fun TrendingMusicCard(
 
         Spacer(modifier = Modifier.height(9.dp))
         Text(
-            music.title,
+            music.title ?: "",
             style = MaterialTheme.typography.bodyLarge.copy(color = White, fontWeight = FontWeight.Bold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            music.artist,
+            music.artist ?: "",
             style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -665,7 +665,7 @@ fun FreshHitListItem(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                music.title,
+                music.title ?: "",
                 style = MaterialTheme.typography.bodyLarge.copy(color = White, fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -673,7 +673,7 @@ fun FreshHitListItem(
             Spacer(modifier = Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    music.artist,
+                    music.artist ?: "",
                     style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -775,8 +775,8 @@ fun CompactMusicCard(music: Music, modifier: Modifier = Modifier, onClick: () ->
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(music.title, style = MaterialTheme.typography.bodyMedium.copy(color = White, fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(music.artist, style = MaterialTheme.typography.labelSmall.copy(color = LightGray), maxLines = 1)
+                Text(music.title ?: "", style = MaterialTheme.typography.bodyMedium.copy(color = White, fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(music.artist ?: "", style = MaterialTheme.typography.labelSmall.copy(color = LightGray), maxLines = 1)
             }
         }
     }

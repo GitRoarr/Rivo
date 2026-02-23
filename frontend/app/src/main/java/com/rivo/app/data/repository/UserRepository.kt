@@ -70,8 +70,6 @@ class UserRepository @Inject constructor(
                         if (userResponse != null) {
                             Log.d("UserRepository", "API registration successful for $email")
 
-                            sessionManager.saveToken(userResponse.token)
-
                             val user = User(
                                 id = userResponse.id,
                                 email = email,
@@ -82,6 +80,8 @@ class UserRepository @Inject constructor(
                                 verificationStatus = VerificationStatus.UNVERIFIED,
                                 socialLinks = emptyMap()
                             )
+                            sessionManager.saveToken(userResponse.token)
+                            sessionManager.createSession(user)
                             userDao.insertUser(user)
                             return@withContext Result.success(user)
                         } else {
@@ -152,29 +152,27 @@ class UserRepository @Inject constructor(
                             Log.d("UserRepository", "API login successful for $email")
 
                             sessionManager.saveToken(userResponse.token)
-
-                            var user = userDao.getUserByEmail(email)
-                            if (user == null) {
-                                user = User(
-                                    id = userResponse.id,
-                                    email = email,
-                                    password = hashPassword(password),
-                                    name = userResponse.name,
-                                    fullName = userResponse.fullName,
-                                    userType = UserType.valueOf(userResponse.userType),
-                                    verificationStatus = VerificationStatus.UNVERIFIED,
-                                    socialLinks = emptyMap()
-                                )
-                                userDao.insertUser(user)
-                            } else {
-                                user = user.copy(
-                                    id = userResponse.id,
-                                    name = userResponse.name,
-                                    fullName = userResponse.fullName,
-                                    userType = UserType.valueOf(userResponse.userType)
-                                )
-                                userDao.insertUser(user)
+                            
+                            // Clean up any existing local records with same email but different ID to avoid duplicates
+                            userDao.getUserByEmail(email)?.let { existing ->
+                                if (existing.id != userResponse.id) {
+                                    userDao.deleteUserById(existing.id)
+                                }
                             }
+
+                            var user = User(
+                                id = userResponse.id,
+                                email = email,
+                                password = hashPassword(password),
+                                name = userResponse.name,
+                                fullName = userResponse.fullName,
+                                userType = UserType.valueOf(userResponse.userType),
+                                verificationStatus = VerificationStatus.UNVERIFIED,
+                                socialLinks = emptyMap()
+                            )
+                            
+                            sessionManager.createSession(user)
+                            userDao.insertUser(user)
                             return@withContext Result.success(user)
                         } else {
                             Log.e("UserRepository", "API login response body is null")
@@ -420,28 +418,12 @@ class UserRepository @Inject constructor(
             if (response.isSuccessful) {
                 val updatedUser = response.body()
                 if (updatedUser != null) {
-                    userDao.insertUser(updatedUser)
                     Result.success(updatedUser)
                 } else {
                     Result.failure(Exception("Empty response body"))
                 }
             } else {
-                // Fallback to local if offline or API fails but we have some data
-                val localUser = userDao.getUserByEmail(email)
-                if (localUser != null) {
-                    val updatedLocalUser = localUser.copy(
-                        fullName = fullName ?: localUser.fullName,
-                        bio = bio ?: localUser.bio,
-                        location = location ?: localUser.location,
-                        website = website ?: localUser.website,
-                        profileImageUrl = profileImagePath ?: localUser.profileImageUrl,
-                        coverImageUrl = coverImagePath ?: localUser.coverImageUrl
-                    )
-                    userDao.insertUser(updatedLocalUser)
-                    Result.success(updatedLocalUser)
-                } else {
-                    Result.failure(Exception(response.errorBody()?.string() ?: "Update failed"))
-                }
+                Result.failure(Exception(response.errorBody()?.string() ?: "Update failed"))
             }
         } catch (e: Exception) {
             Log.e("UserRepository", "updateUserProfile exception: ${e.message}", e)
@@ -462,11 +444,9 @@ class UserRepository @Inject constructor(
         return try {
             val result = updateUserProfile(email, coverImagePath = imageUrl)
             if (result.isSuccess) {
-                userDao.updateCoverImage(email, imageUrl)
                 Result.success(Unit)
             } else {
-                userDao.updateCoverImage(email, imageUrl)
-                Result.success(Unit) // Fallback local success
+                Result.failure(result.exceptionOrNull() ?: Exception("Failed to update cover image"))
             }
         } catch (e: Exception) {
             Result.failure(e)

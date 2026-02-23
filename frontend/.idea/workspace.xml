@@ -29,14 +29,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f665b20e-a2c4-4103-a2c2-22a101611438" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../backend/controllers/exploreController.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/controllers/exploreController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/controllers/notificationController.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/controllers/notificationController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/controllers/statsController.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/controllers/statsController.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../backend/controllers/userController.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/controllers/userController.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/models/followModel.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/models/followModel.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/routes/notificationRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/routes/notificationRoutes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/routes/userRoutes.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/routes/userRoutes.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/server.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.11.1/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.11.1/executionHistory/executionHistory.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.11.1/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.11.1/executionHistory/executionHistory.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/8.11.1/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/8.11.1/fileHashes/fileHashes.bin" afterDir="false" />
@@ -45,42 +38,42 @@
       <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/AppDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/AppDatabase.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/FeaturedContentDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/FeaturedContentDao.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/NotificationDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/NotificationDao.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/PlaylistDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/PlaylistDao.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/PlaylistWithMusic.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/PlaylistWithMusic.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/UserDao.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/UserDao.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/ArtistAnalytics.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/ArtistAnalytics.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/Converters.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/local/Converters.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/FeaturedContent.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/FeaturedContent.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Music.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Music.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/PlaylistWithMusic.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/PlaylistWithMusic.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Notification.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Notification.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/PlayList.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/PlayList.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/User.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/User.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/VerificationRequest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/VerificationRequest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/WatchlistMusicCrossRef.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/WatchlistMusicCrossRef.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/remote/ApiService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/remote/ApiService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/AnalyticsRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/AnalyticsRepository.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/ArtistStatsRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/ArtistStatsRepository.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/FeaturedContentRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/FeaturedContentRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Watchlist.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/model/Watchlist.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/remote/RetrofitClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/remote/RetrofitClient.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/FollowRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/FollowRepository.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/MusicRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/MusicRepository.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/NotificationRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/NotificationRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/PlaylistRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/PlaylistRepository.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/UserRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/UserRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/WatchlistRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/data/repository/WatchlistRepository.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/di/AppModule.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/di/AppModule.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/navigation/RivoNavGraph.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/navigation/RivoNavGraph.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/AdminPanelScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/AdminPanelScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/navigation/RivoScreens.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/navigation/RivoScreens.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/AdminFeaturedContentScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/AdminFeaturedContentScreen.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/DashboardTab.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/DashboardTab.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/MusicTab.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/MusicTab.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/UsersTab.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/UsersTab.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/VerificationTab.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/admin/VerificationTab.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/artist/ArtistDashboardScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/artist/ArtistDashboardScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/artist/ArtistDetailScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/artist/ArtistDetailScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/explore/ExploreScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/explore/ExploreScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/home/HomeComponents.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/home/HomeComponents.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/home/HomeScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/home/HomeScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/library/LibraryScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/library/LibraryScreen.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/library/PlaylistDetailsScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/library/PlaylistDetailsScreen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/notification/NotificationScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/notification/NotificationScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/music/FavoriteScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/music/FavoriteScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/music/MusicListScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/music/MusicListScreen.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/search/SearchScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/screens/search/SearchScreen.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/AdminViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/AdminViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ArtistStatsViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ArtistStatsViewModel.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ArtistViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ArtistViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ExploreViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/ExploreViewModel.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/NotificationViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/NotificationViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/AuthViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/AuthViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/FollowViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/FollowViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/LibraryViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/LibraryViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/MusicViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/MusicViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/SearchViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/rivo/app/ui/viewmodel/SearchViewModel.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,28 +134,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Android App.app.executor": "Run",
-    "Gradle.frontend [testDebugUnitTest].executor": "Run",
-    "Gradle.frontend [testReleaseUnitTest].executor": "Run",
-    "Gradle.frontend:app [testDebugUnitTest].executor": "Run",
-    "PROJECT_TRUSTED_KEY": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "ToolWindow.Device Manager 2.ShowToolbar": "false",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "com.google.services.firebase.aqiPopupShown": "true",
-    "git-widget-placeholder": "main",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/home/girma/Desktop/Rivo/frontend",
-    "settings.editor.selected.configurable": "device.screenshot"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.frontend [testDebugUnitTest].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.frontend [testReleaseUnitTest].executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.frontend:app [testDebugUnitTest].executor&quot;: &quot;Run&quot;,
+    &quot;PROJECT_TRUSTED_KEY&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;ToolWindow.Device Manager 2.ShowToolbar&quot;: &quot;false&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;com.google.services.firebase.aqiPopupShown&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/girma/Desktop/Rivo/frontend&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;device.screenshot&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="K2MoveDeclarationsDialog.RECENT_PACKAGE_KEY">
       <recent name="com.rivo.app.ui.navigation" />

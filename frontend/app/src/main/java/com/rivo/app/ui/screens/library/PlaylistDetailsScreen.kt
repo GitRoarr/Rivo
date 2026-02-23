@@ -140,14 +140,14 @@ fun PlaylistHeader(pwm: PlaylistWithMusic) {
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = pwm.playlist.name,
+            text = pwm.playlist.name ?: "",
             style = MaterialTheme.typography.headlineMedium.copy(color = White, fontWeight = FontWeight.Black),
             textAlign = TextAlign.Center
         )
         
         if (!pwm.playlist.description.isNullOrEmpty()) {
             Text(
-                text = pwm.playlist.description!!,
+                text = pwm.playlist.description ?: "",
                 style = MaterialTheme.typography.bodyMedium.copy(color = LightGray),
                 modifier = Modifier.padding(top = 8.dp),
                 textAlign = TextAlign.Center

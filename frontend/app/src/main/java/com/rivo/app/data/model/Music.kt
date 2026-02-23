@@ -39,15 +39,15 @@ enum class MusicApprovalStatus {
 data class Music(
     @PrimaryKey
     @SerializedName("_id", alternate = ["id"])
-    val id: String,
+    val id: String = "",
     
-    val title: String,
+    val title: String? = null,
     
     @SerializedName("artistName")
-    val artist: String,
+    val artist: String? = null,
     
     @SerializedName("artist")
-    val artistId: String,
+    val artistId: String? = null,
 
     val playlistId: Long? = null,
     val album: String? = null,
@@ -65,7 +65,7 @@ data class Music(
     val playCount: Int = 0,
     
     @SerializedName("createdAt")
-    val uploadDate: Long = System.currentTimeMillis(),
+    val uploadDate: java.util.Date? = java.util.Date(),
     
     @SerializedName("isApproved")
     val isApproved: Boolean = false,
@@ -73,7 +73,7 @@ data class Music(
     val description: String? = null,
     val genre: String? = null,
     
-    @ColumnInfo(name = "userId") val userId: String = "",
+    @ColumnInfo(name = "userId") val userId: String? = null,
 
     var approvalStatus: MusicApprovalStatus = MusicApprovalStatus.PENDING
 ) {

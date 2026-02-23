@@ -23,7 +23,7 @@ class PlaylistRepository @Inject constructor(
 ) {
     suspend fun createPlaylist(playlist: Playlist): Boolean {
         return try {
-            val userId = playlist.createdBy
+            val userId = playlist.createdBy ?: ""
             val user = userRepository.getUserById(userId)
 
             if (user == null) {
@@ -36,9 +36,9 @@ class PlaylistRepository @Inject constructor(
                 val response = apiService.createPlaylist(
                     PlaylistRequest(
                         id = playlist.id,
-                        name = playlist.name,
-                        description = playlist.description,
-                        coverArtUrl = playlist.coverArtUrl,
+                        name = playlist.name ?: "",
+                        description = playlist.description ?: "",
+                        coverArtUrl = playlist.coverArtUrl ?: "",
                         isPublic = playlist.isPublic
                     )
                 )
@@ -68,9 +68,9 @@ class PlaylistRepository @Inject constructor(
                 val response = apiService.updatePlaylist(
                     playlist.id,
                     PlaylistUpdateRequest(
-                        name = playlist.name,
-                        description = playlist.description,
-                        coverArtUrl = playlist.coverArtUrl,
+                        name = playlist.name ?: "",
+                        description = playlist.description ?: "",
+                        coverArtUrl = playlist.coverArtUrl ?: "",
                         isPublic = playlist.isPublic
                     )
                 )

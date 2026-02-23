@@ -171,7 +171,10 @@ fun RivoNavGraph(
                     navController.navigate(RivoScreens.Notification.name)
                 },
                 onSeeAllClick = { section ->
-                    navController.navigate("${RivoScreens.MusicList.name}/$section")
+                    when (section) {
+                        "artists" -> navController.navigate(RivoScreens.ArtistList.name)
+                        else -> navController.navigate("${RivoScreens.MusicList.name}/$section")
+                    }
                 },
                 onPlaylistClick = { playlistId ->
                     navController.navigate("${RivoScreens.PlaylistDetail.name}/$playlistId")
@@ -210,7 +213,7 @@ fun RivoNavGraph(
                     navController.navigate("${RivoScreens.MusicList.name}/trending")
                 },
                 onViewAllArtistsClick = {
-                    navController.navigate("${RivoScreens.MusicList.name}/artists")
+                    navController.navigate(RivoScreens.ArtistList.name)
                 },
                 onViewAllNewReleasesClick = {
                     navController.navigate("${RivoScreens.MusicList.name}/new")
@@ -359,8 +362,9 @@ fun RivoNavGraph(
                             onAboutClick = { navController.navigate(RivoScreens.About.name) },
                             onLogoutClick = {
                                 authViewModel.logout()
-                                navController.navigate(RivoScreens.Welcome.name) {
-                                    popUpTo(0) { inclusive = true }                                }
+                                navController.navigate(RivoScreens.Login.name) {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             },
                             currentUser = currentUser,
                             onEditProfileClick = { navController.navigate(RivoScreens.EditProfile.name) },
@@ -379,8 +383,9 @@ fun RivoNavGraph(
                             onAboutClick = { navController.navigate(RivoScreens.About.name) },
                             onLogoutClick = {
                                 authViewModel.logout()
-                                navController.navigate(RivoScreens.Welcome.name) {
-                                    popUpTo(0) { inclusive = true }                                }
+                                navController.navigate(RivoScreens.Login.name) {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             },
                             artistViewModel = artistViewModel,
                             authViewModel = authViewModel,
@@ -398,8 +403,9 @@ fun RivoNavGraph(
                             onAboutClick = { navController.navigate(RivoScreens.About.name) },
                             onLogoutClick = {
                                 authViewModel.logout()
-                                navController.navigate(RivoScreens.Welcome.name) {
-                                    popUpTo(0) { inclusive = true }                                }
+                                navController.navigate(RivoScreens.Login.name) {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             },
                             authViewModel = authViewModel,
                             followViewModel = followViewModel,
@@ -526,8 +532,8 @@ fun RivoNavGraph(
                 onAboutClick = { navController.navigate(RivoScreens.About.name) },
                 onLogoutClick = {
                     authViewModel.logout()
-                    navController.navigate(RivoScreens.Welcome.name) {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                    navController.navigate(RivoScreens.Login.name) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 artistViewModel = artistViewModel,

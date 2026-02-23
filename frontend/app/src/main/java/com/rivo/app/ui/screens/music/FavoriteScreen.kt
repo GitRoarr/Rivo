@@ -126,7 +126,7 @@ fun FavoriteMusicItem(
         ) {
             AsyncImage(
                 model = music.artworkUri,
-                contentDescription = music.title,
+                contentDescription = music.title ?: "",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
@@ -139,7 +139,7 @@ fun FavoriteMusicItem(
                 .padding(start = 12.dp)
         ) {
             Text(
-                text = music.title,
+                text = music.title ?: "",
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 maxLines = 1,
@@ -147,7 +147,7 @@ fun FavoriteMusicItem(
             )
 
             Text(
-                text = music.artist,
+                text = music.artist ?: "",
                 color = Color.Gray,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,

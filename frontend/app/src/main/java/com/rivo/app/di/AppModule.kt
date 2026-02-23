@@ -82,12 +82,13 @@ object AppModule {
     @Singleton
     fun provideMusicRepository(
         musicDao: MusicDao,
+        userDao: UserDao,
         musicPlayedDao: MusicPlayedDao,
         sessionManager: SessionManager,
         apiService: ApiService,
         @ApplicationContext context: Context
     ): MusicRepository =
-        MusicRepository(musicDao, musicPlayedDao, sessionManager, apiService, context)
+        MusicRepository(musicDao, userDao, musicPlayedDao, sessionManager, apiService, context)
 
     @Provides
     @Singleton

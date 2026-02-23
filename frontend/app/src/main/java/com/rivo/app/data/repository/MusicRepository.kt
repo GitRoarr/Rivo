@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
+import com.rivo.app.data.local.UserDao
 import com.rivo.app.data.local.MusicDao
 import com.rivo.app.data.local.MusicPlayedDao
 import com.rivo.app.data.model.Music
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 @Singleton
 class MusicRepository @Inject constructor(
     private val musicDao: MusicDao,
+    private val userDao: UserDao,
     private val musicPlayedDao: MusicPlayedDao,
     private val sessionManager: SessionManager,
     private val apiService: ApiService,
@@ -113,6 +115,21 @@ class MusicRepository @Inject constructor(
 
     fun getArtistMusic(artistId: String): Flow<List<Music>> {
         return musicDao.getArtistMusic(artistId)
+    }
+
+    suspend fun refreshArtistMusic(artistId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val response = apiService.getMusicByArtist(artistId)
+            if (response.isSuccessful && response.body() != null) {
+                musicDao.insertAllMusic(response.body()!!)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch artist music"))
+            }
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "refreshArtistMusic exception: ${e.message}", e)
+            Result.failure(e)
+        }
     }
 
     suspend fun incrementPlayCount(musicId: String) {
@@ -241,7 +258,6 @@ class MusicRepository @Inject constructor(
             if (response.isSuccessful) {
                 val music = response.body()
                 if (music != null) {
-                    musicDao.insertMusic(music)
                     Result.success(music)
                 } else {
                     Result.failure(Exception("Empty response body"))
@@ -275,13 +291,20 @@ class MusicRepository @Inject constructor(
 
     suspend fun getExploreData(): Result<ExploreResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
+            // Always treat MongoDB (backend) as the source of truth
             val response = apiService.getExploreData()
             if (response.isSuccessful && response.body() != null) {
                 val data = response.body()!!
-                // Sync to local DB
-                musicDao.insertAllMusic(data.trendingMusic)
-                musicDao.insertAllMusic(data.newReleases)
-                musicDao.insertAllMusic(data.featuredMusic)
+
+                // Best-effort cache in Room, but never fail the network result
+                try {
+                    musicDao.insertAllMusic(data.trendingMusic)
+                    musicDao.insertAllMusic(data.newReleases)
+                    musicDao.insertAllMusic(data.featuredMusic)
+                } catch (cacheError: Exception) {
+                    Log.e("MusicRepository", "Caching explore data failed: ${cacheError.message}", cacheError)
+                }
+
                 Result.success(data)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch explore data"))

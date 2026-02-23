@@ -282,12 +282,12 @@ fun ModernMusicGridItem(music: Music, onClick: () -> Unit) {
         Spacer(modifier = Modifier.height(10.dp))
         
         Text(
-            text = music.title,
+            text = music.title ?: "",
             style = MaterialTheme.typography.bodyMedium.copy(color = White, fontWeight = FontWeight.Bold),
             maxLines = 1
         )
         Text(
-            text = music.artist,
+            text = music.artist ?: "",
             style = MaterialTheme.typography.labelSmall.copy(color = LightGray),
             maxLines = 1
         )

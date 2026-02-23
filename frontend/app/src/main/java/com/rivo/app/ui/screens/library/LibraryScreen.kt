@@ -304,7 +304,7 @@ fun AmazingPlaylistCard(playlist: Playlist, onClick: () -> Unit) {
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = playlist.name,
+            text = playlist.name ?: "",
             style = MaterialTheme.typography.titleMedium.copy(color = White, fontWeight = FontWeight.Bold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -362,13 +362,13 @@ fun AmazingMusicRow(music: Music, onClick: () -> Unit) {
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = music.title,
+                text = music.title ?: "",
                 style = MaterialTheme.typography.bodyLarge.copy(color = White, fontWeight = FontWeight.Bold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = music.artist,
+                text = music.artist ?: "",
                 style = MaterialTheme.typography.bodySmall.copy(color = LightGray),
                 maxLines = 1
             )

@@ -63,11 +63,26 @@ class FollowViewModel @Inject constructor(
     fun toggleFollow(artistId: String) {
         viewModelScope.launch {
             try {
-                val currentUser = sessionManager.getCurrentUser()
-                if (true) {
+                val session = sessionManager.getCurrentUser()
+
+                if (!session.isLoggedIn || session.userId.isBlank()) {
+                    Log.e("FollowViewModel", "Cannot toggle follow: user not logged in")
+                    _error.value = "You need to be logged in to follow artists"
+                    return@launch
+                }
+
+                // Prevent an artist from following themself
+                if (session.userId == artistId) {
+                    Log.e("FollowViewModel", "User attempted to follow themself: $artistId")
+                    _error.value = "You cannot follow yourself"
+                    return@launch
+                }
+
+                val currentUserId = session.email
+                if (currentUserId.isNotBlank()) {
                     if (_isFollowing.value) {
                         Log.d("FollowViewModel", "Unfollowing artist: $artistId")
-                        followRepository.unfollowArtist(currentUser.email, artistId)
+                        followRepository.unfollowArtist(currentUserId, artistId)
                         _isFollowing.value = false
                         _followersCount.value = (_followersCount.value - 1).coerceAtLeast(0)
 
@@ -76,7 +91,7 @@ class FollowViewModel @Inject constructor(
                         followerCountCache[artistId]?.value = (followerCountCache[artistId]?.value ?: 1) - 1
                     } else {
                         Log.d("FollowViewModel", "Following artist: $artistId")
-                        followRepository.followArtist(currentUser.email, artistId)
+                        followRepository.followArtist(currentUserId, artistId)
                         _isFollowing.value = true
                         _followersCount.value += 1
 
@@ -85,7 +100,7 @@ class FollowViewModel @Inject constructor(
                         followerCountCache[artistId]?.value = (followerCountCache[artistId]?.value ?: 0) + 1
                     }
                 } else {
-                    Log.e("FollowViewModel", "Cannot toggle follow: current user is null")
+                    Log.e("FollowViewModel", "Cannot toggle follow: current user email is blank")
                     _error.value = "You need to be logged in to follow artists"
                 }
             } catch (e: Exception) {

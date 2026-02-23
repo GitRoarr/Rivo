@@ -88,10 +88,24 @@ class ArtistViewModel @Inject constructor(
 
     fun loadArtistData(artistId: String) {
         viewModelScope.launch {
+            // Load artist profile
+            val artist = userRepository.getUserById(artistId)
+            if (artist != null) {
+                _currentArtist.value = artist
+            }
+        }
+
+        viewModelScope.launch {
             // Load artist music
             musicRepository.getArtistMusic(artistId).collectLatest { music ->
                 _artistMusic.value = music
                 Log.d("ArtistViewModel", "Loaded ${music.size} music tracks for artist $artistId")
+            }
+        }
+
+        viewModelScope.launch {
+            musicRepository.refreshArtistMusic(artistId).onFailure { e ->
+                Log.e("ArtistViewModel", "Error refreshing artist music from backend", e)
             }
         }
 

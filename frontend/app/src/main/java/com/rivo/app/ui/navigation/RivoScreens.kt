@@ -27,6 +27,7 @@ enum class RivoScreens {
     ArtistProfile,
     ArtistVerification,
     ArtistAnalytics,
+    ArtistList,
     AdminPanel,
     AdminProfile,
     AdminFeaturedContent;

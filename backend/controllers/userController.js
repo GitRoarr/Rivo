@@ -345,7 +345,8 @@ const followUser = asyncHandler(async (req, res) => {
     const followingId = req.params.id
     const followerId = req.user._id
 
-    if (followingId === followerId) {
+    // Prevent users from following themselves
+    if (followingId === followerId.toString()) {
         res.status(400)
         throw new Error("You cannot follow yourself")
     }

@@ -125,8 +125,8 @@ class SearchViewModel @Inject constructor(
     private fun searchOffline(query: String) {
         val q = query.lowercase()
         _musicResults.value = _cachedMusic.value.filter { m ->
-            m.title.lowercase().contains(q) ||
-                    m.artist.lowercase().contains(q) ||
+            (m.title ?: "").lowercase().contains(q) ||
+                    (m.artist ?: "").lowercase().contains(q) ||
                     m.album?.lowercase()?.contains(q) == true ||
                     m.genre?.lowercase()?.contains(q) == true
         }

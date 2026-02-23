@@ -77,7 +77,7 @@ class LibraryViewModel @Inject constructor(
             try {
                 playlistRepository.updatePlaylist(playlist)
                 delay(300)
-                loadUserPlaylists(playlist.createdBy)
+                loadUserPlaylists(playlist.createdBy ?: "")
                 _snackBarMessage.value = "Playlist updated successfully"
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error updating playlist: ${e.message}", e)
@@ -188,7 +188,7 @@ class LibraryViewModel @Inject constructor(
                         playlistRepository.deletePlaylist(libraryItem)
 
                         delay(300)
-                        loadUserPlaylists(libraryItem.createdBy)
+                        loadUserPlaylists(libraryItem.createdBy ?: "")
                         _snackBarMessage.value = "Playlist deleted successfully"
                     } else {
                         _error.value = "Provided item is not a Playlist"
@@ -199,7 +199,7 @@ class LibraryViewModel @Inject constructor(
                         watchlistRepository.deleteWatchlist(libraryItem)
 
                         delay(300)
-                        loadUserWatchlists(libraryItem.createdBy)
+                        loadUserWatchlists(libraryItem.createdBy ?: "")
                         _snackBarMessage.value = "Watchlist deleted successfully"
                     } else {
                         _error.value = "Provided item is not a Watchlist"
@@ -224,7 +224,7 @@ class LibraryViewModel @Inject constructor(
                     playlistRepository.addMusicToPlaylist(libraryItemId, music.id)
 
                     // After adding music, reload playlists
-                    val userId = playlist.createdBy
+                    val userId = playlist.createdBy ?: ""
                     loadUserPlaylists(userId)
                     _snackBarMessage.value = "Added to ${playlist.name}"
                 } else {
@@ -238,7 +238,7 @@ class LibraryViewModel @Inject constructor(
                     _snackBarMessage.value = "Added to Watchlist"
 
                     // Reload watchlists to update UI
-                    val userId = watchlist.createdBy
+                    val userId = watchlist.createdBy ?: ""
                     loadUserWatchlists(userId)
                 } else {
                     _error.value = "Watchlist not found. Please try again."

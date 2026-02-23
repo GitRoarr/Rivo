@@ -436,14 +436,14 @@ fun SearchMusicListItem(music: Music, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = music.title,
+                text = music.title ?: "",
                 color = White,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = music.artist,
+                text = music.artist ?: "",
                 color = LightGray,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1

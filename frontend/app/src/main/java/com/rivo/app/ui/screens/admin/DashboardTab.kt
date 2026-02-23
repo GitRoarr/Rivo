@@ -397,8 +397,8 @@ private fun RecentMusicItem(track: com.rivo.app.data.model.Music, modifier: Modi
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(track.title, style = MaterialTheme.typography.bodyLarge.copy(color = White, fontWeight = FontWeight.Bold))
-                Text(track.artist, style = MaterialTheme.typography.bodySmall.copy(color = LightGray))
+                Text(track.title ?: "", style = MaterialTheme.typography.bodyLarge.copy(color = White, fontWeight = FontWeight.Bold))
+                Text(track.artist ?: "", style = MaterialTheme.typography.bodySmall.copy(color = LightGray))
             }
             Box(
                 modifier = Modifier

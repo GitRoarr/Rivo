@@ -98,7 +98,7 @@ private fun MusicRow(
     ) {
         AsyncImage(
             model = music.artworkUri,
-            contentDescription = music.title,
+            contentDescription = music.title ?: "",
             modifier = Modifier
                 .size(48.dp)
                 .background(Color(0xFF333333), shape = MaterialTheme.shapes.small),
@@ -109,14 +109,14 @@ private fun MusicRow(
 
         Column(Modifier.weight(1f)) {
             Text(
-                text = music.title,
+                text = music.title ?: "",
                 color = Color.White,
                 fontSize = 16.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = music.artist,
+                text = music.artist ?: "",
                 color = Color.Gray,
                 fontSize = 14.sp,
                 maxLines = 1,

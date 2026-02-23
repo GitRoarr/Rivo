@@ -26,7 +26,7 @@ class WatchlistRepository @Inject constructor(
 
     suspend fun createWatchlist(watchlist: Watchlist): Boolean {
         return try {
-            val userId = watchlist.createdBy
+            val userId = watchlist.createdBy ?: ""
             val user = userRepository.getUserById(userId)
 
             if (user == null) {
@@ -39,8 +39,8 @@ class WatchlistRepository @Inject constructor(
                 val response = apiService.createWatchlist(
                     WatchlistRequest(
                         id = watchlist.id,
-                        name = watchlist.name,
-                        description = watchlist.description
+                        name = watchlist.name ?: "",
+                        description = watchlist.description ?: ""
                     )
                 )
 

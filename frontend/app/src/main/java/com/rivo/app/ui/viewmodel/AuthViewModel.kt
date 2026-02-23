@@ -64,46 +64,9 @@ class AuthViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val adminEmail = "admin@rivo.com"
-            val adminPassword = "Admin@123!"
-
-            val existingAdmin = try {
-                userRepository.loginUser(adminEmail, adminPassword)
-            } catch (e: Exception) {
-                null
-            }
-
-            if (existingAdmin == null || existingAdmin.isFailure) {
-                userRepository.registerUser(
-                    fullName = "Admin",
-                    name = "admin",
-                    email = adminEmail,
-                    password = adminPassword,
-                    userType = UserType.ADMIN
-                )
-            }
-
-            val artistEmail = "artist@rivo.com"
-            val artistPassword = "Artist@123!"
-
-            val existingArtist = try {
-                userRepository.loginUser(artistEmail, artistPassword)
-            } catch (e: Exception) {
-                null
-            }
-
-            if (existingArtist == null || existingArtist.isFailure) {
-                userRepository.registerUser(
-                    fullName = "Sample Artist",
-                    name = "sample_artist",
-                    email = artistEmail,
-                    password = artistPassword,
-                    userType = UserType.ARTIST
-                )
-            }
-            sessionManager.sessionFlow.collect { session ->
-                if (session.isLoggedIn) {
-                    _currentUser.value = userRepository.getUserByEmail(session.email)
+            sessionManager.sessionFlow.collect { currentSession ->
+                if (currentSession.isLoggedIn) {
+                    _currentUser.value = userRepository.getUserByEmail(currentSession.email)
                 } else {
                     _currentUser.value = null
                 }
@@ -268,7 +231,9 @@ class AuthViewModel @Inject constructor(
                     _currentUser.value = userRepository.getUserByEmail(user.email)
                 }
                 else {
-                    val fileName = "profile_${user.id}_${System.currentTimeMillis()}.jpg"
+                    val session = sessionManager.sessionFlow.first()
+                    val userId = if (session.userId.isNotEmpty()) session.userId else user.id
+                    val fileName = "profile_${userId}_${System.currentTimeMillis()}.jpg"
                     val localPath = ImagePickerHelper.saveImageToInternalStorage(context, uri, fileName)
 
                     if (localPath != null) {
@@ -294,7 +259,9 @@ class AuthViewModel @Inject constructor(
                     _currentUser.value = userRepository.getUserByEmail(user.email)
                 }
                 else {
-                    val fileName = "cover_${user.id}_${System.currentTimeMillis()}.jpg"
+                    val session = sessionManager.sessionFlow.first()
+                    val userId = if (session.userId.isNotEmpty()) session.userId else user.id
+                    val fileName = "cover_${userId}_${System.currentTimeMillis()}.jpg"
                     val localPath = ImagePickerHelper.saveImageToInternalStorage(context, uri, fileName)
 
                     if (localPath != null) {

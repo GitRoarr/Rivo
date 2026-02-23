@@ -258,8 +258,8 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _currentAdmin.value?.let { admin ->
                 val result = featuredContentRepository.createFeaturedContent(
-                    title = music.title,
-                    description = music.artist,
+                    title = music.title ?: "",
+                    description = music.artist ?: "",
                     type = FeaturedType.SONG,
                     contentId = music.id,
                     imageUrl = music.artworkUri
@@ -278,7 +278,7 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _currentAdmin.value?.let { admin ->
                 val result = featuredContentRepository.createFeaturedContent(
-                    title = artist.name,
+                    title = artist.name ?: "",
                     description = "Featured Artist",
                     type = FeaturedType.ARTIST,
                     contentId = artist.id,

@@ -17,11 +17,11 @@ enum class UserType {
 data class User(
     @PrimaryKey
     @SerializedName("_id", alternate = ["id"])
-    val id: String,
-    val email: String,
-    val password: String,
-    val name: String,
-    val fullName: String,
+    val id: String = "",
+    val email: String = "",
+    val password: String? = null,
+    val name: String = "",
+    val fullName: String = "",
     val userType: UserType = UserType.LISTENER,
     @SerializedName("profileImageUrl", alternate = ["profilePictureUrl"])
     val profileImageUrl: String? = null,
@@ -32,7 +32,7 @@ data class User(
     val isSuspended: Boolean = false,
     val followerCount: Int = 0,
     val followingCount: Int = 0,
-    val createdAt: Date = Date(),
+    val createdAt: Date? = Date(),
     val verificationStatus: VerificationStatus = VerificationStatus.UNVERIFIED,
     val verificationRequestDate: Date? = null,
     val verificationApprovalDate: Date? = null,

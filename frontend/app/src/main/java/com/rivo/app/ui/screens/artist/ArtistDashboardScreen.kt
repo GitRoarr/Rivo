@@ -177,12 +177,21 @@ fun ArtistDashboardScreen(
                                 }
                             }
                         )
-                        ArtistDashboardTab.MY_MUSIC -> MyMusicTab(
-                            artistMusic = artistMusic.sortedByDescending { it.uploadDate },
-                            onEditTrackClick = onEditTrackClick,
-                            onDeleteTrackClick = { artistViewModel.deleteMusic(it.id) },
-                            onUploadNewClick = { artistViewModel.setSelectedTab(ArtistDashboardTab.UPLOAD_MUSIC) }
-                        )
+                        ArtistDashboardTab.MY_MUSIC -> {
+                            // Ensure the artist's catalog is refreshed from backend
+                            LaunchedEffect("artist_library_refresh") {
+                                artistViewModel.currentArtist.value?.id?.let { id ->
+                                    artistViewModel.loadArtistData(id)
+                                }
+                            }
+
+                            MyMusicTab(
+                                artistMusic = artistMusic.sortedByDescending { it.uploadDate },
+                                onEditTrackClick = onEditTrackClick,
+                                onDeleteTrackClick = { artistViewModel.deleteMusic(it.id) },
+                                onUploadNewClick = { artistViewModel.setSelectedTab(ArtistDashboardTab.UPLOAD_MUSIC) }
+                            )
+                        }
                         ArtistDashboardTab.ANALYTICS -> AnalyticsTab(
                             artistAnalytics = artistAnalytics,
                             artistMusic = artistMusic
@@ -449,7 +458,7 @@ private fun UploadField(value: String, onValueChange: (String) -> Unit, label: S
 private fun MyMusicTab(artistMusic: List<Music>, onEditTrackClick: (Music) -> Unit, onDeleteTrackClick: (Music) -> Unit, onUploadNewClick: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     val filtered = remember(artistMusic, searchQuery) {
-        if (searchQuery.isBlank()) artistMusic else artistMusic.filter { it.title.contains(searchQuery, ignoreCase = true) }
+        if (searchQuery.isBlank()) artistMusic else artistMusic.filter { (it.title ?: "").contains(searchQuery, ignoreCase = true) }
     }
 
     LazyColumn(
@@ -512,7 +521,7 @@ private fun TrackManagementCard(music: Music, onEditClick: () -> Unit, onDeleteC
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(music.title, color = White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(music.title ?: "", color = White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(music.genre ?: "General", color = RivoPurple, style = MaterialTheme.typography.labelSmall)
                 Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.PlayArrow, null, tint = DarkGray, modifier = Modifier.size(14.dp))
@@ -672,7 +681,7 @@ private fun RankedTrackRow(music: Music, rank: Int) {
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(music.title, color = White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(music.title ?: "", color = White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${formatNumber(music.playCount)} plays", color = DarkGray, style = MaterialTheme.typography.labelSmall)
         }
         Box(modifier = Modifier.height(24.dp).width(1.dp).background(White.copy(alpha = 0.05f)))
