@@ -77,18 +77,24 @@ fun ArtistListScreen(
                             val second = row.getOrNull(1)
 
                             if (first != null) {
+                                val isFollowing by followViewModel.isFollowingArtist(first.id).collectAsState()
+                                val followerCount by followViewModel.getArtistFollowerCount(first.id).collectAsState()
                                 PremiumArtistCard(
                                     artist = first,
-                                    isFollowing = false,
+                                    isFollowing = isFollowing,
+                                    followerCount = followerCount,
                                     onFollowClick = { followViewModel.toggleFollow(first.id) },
                                     onClick = { onArtistClick(first.id) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                             if (second != null) {
+                                val isFollowing by followViewModel.isFollowingArtist(second.id).collectAsState()
+                                val followerCount by followViewModel.getArtistFollowerCount(second.id).collectAsState()
                                 PremiumArtistCard(
                                     artist = second,
-                                    isFollowing = false,
+                                    isFollowing = isFollowing,
+                                    followerCount = followerCount,
                                     onFollowClick = { followViewModel.toggleFollow(second.id) },
                                     onClick = { onArtistClick(second.id) },
                                     modifier = Modifier.weight(1f)

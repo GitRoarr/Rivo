@@ -102,11 +102,52 @@ class MusicRepository @Inject constructor(
 
     suspend fun getFavoriteMusic(): Flow<List<Music>> {
         val userId = sessionManager.getCurrentUserId()
+        // Sync liked songs from MongoDB Atlas in background
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            syncLikedSongsFromBackend(userId)
+        }
         return musicDao.getFavoriteMusic(userId)
     }
 
+    private suspend fun syncLikedSongsFromBackend(userId: String) {
+        try {
+            val response = apiService.getLikedSongs()
+            if (response.isSuccessful) {
+                val likedSongs = response.body() ?: emptyList()
+                // Clear old local favorites for this user, then re-stamp the ones from the server
+                musicDao.clearAllFavoritesForUser(userId)
+                if (likedSongs.isNotEmpty()) {
+                    val stamped = likedSongs.map { it.copy(isFavorite = true, userId = userId) }
+                    musicDao.insertAllMusic(stamped)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Failed to sync liked songs from backend: ${e.message}")
+        }
+    }
+
     suspend fun toggleFavorite(musicId: String, isFavorite: Boolean) {
-        musicDao.updateFavoriteStatus(musicId, isFavorite)
+        val userId = sessionManager.getCurrentUserId()
+        // Optimistically update local DB (set userId so getFavoriteMusic query finds it)
+        if (isFavorite) {
+            musicDao.markAsFavoriteForUser(musicId, userId)
+        } else {
+            musicDao.updateFavoriteStatus(musicId, false)
+        }
+        // Sync to MongoDB Atlas
+        try {
+            if (isFavorite) {
+                apiService.likeMusic(musicId)
+            } else {
+                apiService.unlikeMusic(musicId)
+            }
+        } catch (e: Exception) {
+            // Revert local change if backend call failed
+            Log.e("MusicRepository", "Failed to sync favorite to backend, reverting: ${e.message}")
+            musicDao.updateFavoriteStatus(musicId, !isFavorite)
+            throw e
+        }
     }
 
     suspend fun getMusicById(musicId: String): Music? {
@@ -117,12 +158,20 @@ class MusicRepository @Inject constructor(
         return musicDao.getArtistMusic(artistId)
     }
 
-    suspend fun refreshArtistMusic(artistId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun refreshArtistMusic(artistId: String): Result<List<Music>> = withContext(Dispatchers.IO) {
         return@withContext try {
             val response = apiService.getMusicByArtist(artistId)
             if (response.isSuccessful && response.body() != null) {
-                musicDao.insertAllMusic(response.body()!!)
-                Result.success(Unit)
+                val musicList = response.body()!!
+
+                // Best-effort cache in Room, but never fail the network result
+                try {
+                    musicDao.insertAllMusic(musicList)
+                } catch (e: Exception) {
+                    Log.e("MusicRepository", "Failed to cache artist music in Room: ${e.message}", e)
+                }
+
+                Result.success(musicList)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch artist music"))
             }
@@ -291,12 +340,9 @@ class MusicRepository @Inject constructor(
 
     suspend fun getExploreData(): Result<ExploreResponse> = withContext(Dispatchers.IO) {
         return@withContext try {
-            // Always treat MongoDB (backend) as the source of truth
             val response = apiService.getExploreData()
             if (response.isSuccessful && response.body() != null) {
                 val data = response.body()!!
-
-                // Best-effort cache in Room, but never fail the network result
                 try {
                     musicDao.insertAllMusic(data.trendingMusic)
                     musicDao.insertAllMusic(data.newReleases)
@@ -304,13 +350,25 @@ class MusicRepository @Inject constructor(
                 } catch (cacheError: Exception) {
                     Log.e("MusicRepository", "Caching explore data failed: ${cacheError.message}", cacheError)
                 }
-
                 Result.success(data)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch explore data"))
             }
         } catch (e: Exception) {
             Log.e("MusicRepository", "getExploreData exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCategories(): Result<List<com.rivo.app.data.remote.MusicCategory>> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val response = apiService.getExploreData()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()?.categories ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to fetch categories"))
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

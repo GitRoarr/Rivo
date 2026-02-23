@@ -19,7 +19,7 @@ data class User(
     @SerializedName("_id", alternate = ["id"])
     val id: String = "",
     val email: String = "",
-    val password: String? = null,
+    val password: String = "",
     val name: String = "",
     val fullName: String = "",
     val userType: UserType = UserType.LISTENER,

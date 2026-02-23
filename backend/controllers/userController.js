@@ -157,7 +157,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 
 
 const getUserById = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.id).select("-password")
+    const user = await User.findById(req.params.id).select("-password -likedSongs")
 
     if (user) {
         res.json(user)
@@ -396,6 +396,72 @@ const getUsersAwaitingVerification = asyncHandler(async (req, res) => {
     res.json(users)
 })
 
+const Music = require("../models/musicModel")
+
+// @desc    Like a song (add to likedSongs)
+// @route   POST /api/users/liked-songs/:musicId
+// @access  Private
+const likeMusic = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id)
+    if (!user) {
+        res.status(404)
+        throw new Error("User not found")
+    }
+
+    const musicId = req.params.musicId
+    if (!user.likedSongs.includes(musicId)) {
+        user.likedSongs.push(musicId)
+        await user.save()
+    }
+
+    res.json({ liked: true, musicId })
+})
+
+// @desc    Unlike a song (remove from likedSongs)
+// @route   DELETE /api/users/liked-songs/:musicId
+// @access  Private
+const unlikeMusic = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id)
+    if (!user) {
+        res.status(404)
+        throw new Error("User not found")
+    }
+
+    const musicId = req.params.musicId
+    user.likedSongs = user.likedSongs.filter(id => id.toString() !== musicId)
+    await user.save()
+
+    res.json({ liked: false, musicId })
+})
+
+// @desc    Get all liked songs for the current user
+// @route   GET /api/users/liked-songs
+// @access  Private
+const getLikedSongs = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id)
+    if (!user) {
+        res.status(404)
+        throw new Error("User not found")
+    }
+
+    const songs = await Music.find({ _id: { $in: user.likedSongs } })
+    res.json(songs)
+})
+
+// @desc    Check if a song is liked by the current user
+// @route   GET /api/users/liked-songs/check/:musicId
+// @access  Private
+const checkLikedSong = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id)
+    if (!user) {
+        res.status(404)
+        throw new Error("User not found")
+    }
+
+    const liked = user.likedSongs.includes(req.params.musicId)
+    res.json({ liked, musicId: req.params.musicId })
+})
+
 module.exports = {
     registerUser,
     loginUser,
@@ -417,5 +483,9 @@ module.exports = {
     getFollowers,
     getFollowing,
     getAllUsers,
-    getUsersAwaitingVerification
+    getUsersAwaitingVerification,
+    likeMusic,
+    unlikeMusic,
+    getLikedSongs,
+    checkLikedSong
 }

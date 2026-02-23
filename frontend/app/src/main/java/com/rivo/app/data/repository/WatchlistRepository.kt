@@ -16,7 +16,32 @@ class WatchlistRepository @Inject constructor(
     private val userRepository: UserRepository,
     private val apiService: ApiService
 ) {
+    /**
+     * Sync the current user's watchlists from the MongoDB Atlas backend
+     * into the local Room cache so the Library screen is backend-based.
+     */
+    suspend fun syncUserWatchlistsFromRemote(userId: String) {
+        try {
+            val response = apiService.getUserWatchlists()
+            if (response.isSuccessful) {
+                val remoteWatchlists = response.body() ?: emptyList()
+                remoteWatchlists.forEach { watchlist ->
+                    watchlistDao.insert(watchlist)
+                }
+            } else {
+                Log.e(
+                    "WatchlistRepository",
+                    "syncUserWatchlistsFromRemote failed: ${response.errorBody()?.string()}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("WatchlistRepository", "Error syncing watchlists from remote: ${e.message}", e)
+        }
+    }
+
     fun getWatchlistsByUser(userId: String): Flow<List<Watchlist>> {
+        // Returns watchlists from the local cache, which is now kept in sync
+        // with MongoDB Atlas via syncUserWatchlistsFromRemote.
         return watchlistDao.getWatchlistsByUser(userId)
     }
 

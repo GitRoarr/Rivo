@@ -67,6 +67,12 @@ const userSchema = mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    likedSongs: [
+        {
+            type: String,
+            ref: "Music",
+        }
+    ],
 }, {
     timestamps: true,
 },)

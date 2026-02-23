@@ -1,6 +1,6 @@
 package com.rivo.app.ui.screens.home
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -238,63 +239,69 @@ private fun GlowingPill(text: String) {
 private fun lerp(start: Float, stop: Float, fraction: Float): Float =
     start + fraction * (stop - start)
 
-// ═════════════════════════════════════════════════════════════════════════════
-// QUICK ACTION ROW
-// ═════════════════════════════════════════════════════════════════════════════
-
-private data class QuickAction(
-    val label: String,
-    val icon: ImageVector,
-    val gradient: List<Color>
-)
-
 @Composable
-fun QuickActionRow(modifier: Modifier = Modifier) {
-    val actions = remember {
-        listOf(
-            QuickAction("Trending",  Icons.Default.TrendingUp,  listOf(Color(0xFFA855F7), Color(0xFFEC4899))),
-            QuickAction("New Music", Icons.Default.FiberNew,    listOf(Color(0xFF4F46E5), Color(0xFF06B6D4))),
-            QuickAction("Charts",   Icons.Default.BarChart,    listOf(Color(0xFFEC4899), Color(0xFFEF4444))),
-            QuickAction("Radio",    Icons.Default.Radio,       listOf(Color(0xFF06B6D4), Color(0xFF10B981))),
-            QuickAction("Moods",    Icons.Default.Mood,        listOf(Color(0xFFF59E0B), Color(0xFFEC4899)))
-        )
-    }
-
+fun CategoryRow(
+    categories: List<com.rivo.app.data.remote.MusicCategory>,
+    onCategoryClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
     ) {
-        items(actions) { action ->
-            QuickActionChip(action)
+        items(categories) { category ->
+            CategoryChip(category = category, onClick = { onCategoryClick(category.id) })
         }
     }
 }
 
 @Composable
-private fun QuickActionChip(action: QuickAction) {
+private fun CategoryChip(category: com.rivo.app.data.remote.MusicCategory, onClick: () -> Unit) {
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(Spring.DampingRatioMediumBouncy),
         label = "chip_scale"
     )
+
+    val bgColor = remember(category.color) {
+        try {
+            Color(android.graphics.Color.parseColor(category.color))
+        } catch (_: Exception) {
+            RivoPink
+        }
+    }
+
     Box(
         modifier = Modifier
             .scale(scale)
             .clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(action.gradient))
+            .background(Brush.linearGradient(listOf(bgColor.copy(0.7f), bgColor.copy(0.4f))))
+            .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(18.dp))
             .clickable {
                 isPressed = true
+                onClick()
             }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(action.icon, null, tint = White, modifier = Modifier.size(15.dp))
-            Text(action.label, color = White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Icon(
+                imageVector = when(category.icon.lowercase()) {
+                    "mic" -> Icons.Default.Mic
+                    "album" -> Icons.Default.Album
+                    "spa" -> Icons.Default.Spa
+                    "trending" -> Icons.Default.TrendingUp
+                    else -> Icons.Default.MusicNote
+                },
+                contentDescription = null,
+                tint = White,
+                modifier = Modifier.size(15.dp)
+            )
+            Text(category.title, color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
     }
     LaunchedEffect(isPressed) {
@@ -439,6 +446,7 @@ fun TrendingMusicCard(
 fun PremiumArtistCard(
     artist: User,
     isFollowing: Boolean,
+    followerCount: Int,
     onFollowClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -459,32 +467,36 @@ fun PremiumArtistCard(
         label = "ring_rot"
     )
 
+    val displayName = if (artist.fullName.isNotBlank()) artist.fullName else artist.name
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .width(112.dp)
+            .width(136.dp) // Uniform width
             .scale(cardScale)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Color.White.copy(alpha = 0.04f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
             .clickable { isPressed = true; onClick() }
+            .padding(top = 18.dp, bottom = 14.dp, start = 8.dp, end = 8.dp)
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(92.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(94.dp)) {
             // Rotating gradient ring
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .graphicsLayer(rotationZ = ringRotation)
                     .drawBehind {
                         val sweepGradient = Brush.sweepGradient(
                             listOf(RivoPurple, RivoPink, RivoCyan, RivoPurple)
                         )
-                        drawCircle(brush = sweepGradient, radius = size.minDimension / 2f)
+                        drawCircle(brush = sweepGradient, radius = size.minDimension / 2.1f, style = Stroke(width = 2.5.dp.toPx()))
                     }
-                    .clip(CircleShape)
             )
-            // Dark gap ring
-            Box(modifier = Modifier.size(84.dp).background(DarkBackground, CircleShape))
             // Avatar
             AsyncImage(
                 model = artist.profileImageUrl ?: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
-                contentDescription = artist.name,
+                contentDescription = displayName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.size(80.dp).clip(CircleShape)
             )
@@ -503,72 +515,69 @@ fun PremiumArtistCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(9.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
-            artist.name,
-            style = MaterialTheme.typography.labelLarge.copy(color = White, fontWeight = FontWeight.Bold),
+            displayName,
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 13.sp,
+                letterSpacing = (-0.2).sp
+            ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
         )
-        if (artist.followerCount > 0) {
+        val displayFollowers = if (followerCount > 0) followerCount else artist.followerCount
+        if (displayFollowers > 0) {
             Text(
-                "${formatCount(artist.followerCount)} fans",
+                "${formatCount(displayFollowers)} fans",
                 style = MaterialTheme.typography.bodySmall.copy(color = LightGray, fontSize = 11.sp),
                 textAlign = TextAlign.Center
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Animated follow button
-        val followBg by animateColorAsState(
-            targetValue = if (localFollowing) DarkSurface else Color.Transparent,
-            animationSpec = tween(300),
-            label = "follow_bg"
-        )
-        val followTextColor by animateColorAsState(
-            targetValue = if (localFollowing) LightGray else RivoPink,
-            animationSpec = tween(300),
-            label = "follow_text"
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .then(
-                    if (!localFollowing) Modifier.background(
-                        Brush.horizontalGradient(listOf(RivoPurple.copy(0.2f), RivoPink.copy(0.2f)))
-                    ) else Modifier.background(followBg)
-                )
-                .border(
-                    1.dp,
-                    if (localFollowing) LightGray.copy(0.25f) else RivoPink,
-                    RoundedCornerShape(10.dp)
-                )
-                .clickable {
-                    localFollowing = !localFollowing
-                    onFollowClick()
-                }
-                .padding(vertical = 7.dp),
-            contentAlignment = Alignment.Center
+        // Animated follow button visibility
+        AnimatedVisibility(
+            visible = !localFollowing,
+            enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+            exit = fadeOut(tween(250)) + shrinkVertically(tween(250)),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .clip(CircleShape)
+                    .background(RivoPink.copy(0.12f))
+                    .border(1.dp, RivoPink.copy(0.8f), CircleShape)
+                    .clickable {
+                        localFollowing = true
+                        onFollowClick()
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                if (localFollowing) {
-                    Icon(Icons.Default.Check, null, tint = LightGray, modifier = Modifier.size(12.dp))
-                } else {
-                    Icon(Icons.Default.Add, null, tint = RivoPink, modifier = Modifier.size(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.Add, null, tint = RivoPink, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Follow",
+                        color = RivoPink,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black
+                    )
                 }
-                Text(
-                    text = if (localFollowing) "Following" else "Follow",
-                    color = followTextColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
+        }
+
+        if (localFollowing) {
+            Spacer(modifier = Modifier.height(34.dp))
         }
     }
 
@@ -758,7 +767,7 @@ fun GlassMusicCard(music: Music, isFavorite: Boolean, onClick: () -> Unit) =
 
 @Composable
 fun CircleArtistCard(artist: User, onClick: () -> Unit) =
-    PremiumArtistCard(artist = artist, isFollowing = false, onFollowClick = {}, onClick = onClick)
+    PremiumArtistCard(artist = artist, isFollowing = false, followerCount = artist.followerCount, onFollowClick = {}, onClick = onClick)
 
 @Composable
 fun CompactMusicCard(music: Music, modifier: Modifier = Modifier, onClick: () -> Unit) {

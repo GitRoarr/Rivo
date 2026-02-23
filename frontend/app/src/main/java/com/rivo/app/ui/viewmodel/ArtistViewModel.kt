@@ -59,8 +59,12 @@ class ArtistViewModel @Inject constructor(
     private val _selectedTab = MutableStateFlow(ArtistDashboardTab.UPLOAD_MUSIC)
     val selectedTab: StateFlow<ArtistDashboardTab> = _selectedTab.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<com.rivo.app.data.remote.MusicCategory>>(emptyList())
+    val categories: StateFlow<List<com.rivo.app.data.remote.MusicCategory>> = _categories.asStateFlow()
+
     init {
         loadArtists()
+        loadCategories()
 
         viewModelScope.launch {
             val session = sessionManager.sessionFlow.first()
@@ -76,6 +80,15 @@ class ArtistViewModel @Inject constructor(
 
     fun setSelectedTab(tab: ArtistDashboardTab) {
         _selectedTab.value = tab
+    }
+
+    private fun loadCategories() {
+        viewModelScope.launch {
+            val result = musicRepository.getCategories()
+            result.onSuccess {
+                _categories.value = it
+            }
+        }
     }
 
     private fun loadArtists() {
@@ -96,16 +109,14 @@ class ArtistViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // Load artist music
-            musicRepository.getArtistMusic(artistId).collectLatest { music ->
-                _artistMusic.value = music
-                Log.d("ArtistViewModel", "Loaded ${music.size} music tracks for artist $artistId")
-            }
-        }
-
-        viewModelScope.launch {
-            musicRepository.refreshArtistMusic(artistId).onFailure { e ->
-                Log.e("ArtistViewModel", "Error refreshing artist music from backend", e)
+            // Load artist music directly from backend (MongoDB Atlas)
+            val result = musicRepository.refreshArtistMusic(artistId)
+            result.onSuccess { musicList ->
+                _artistMusic.value = musicList
+                Log.d("ArtistViewModel", "Loaded ${musicList.size} music tracks for artist $artistId from Atlas")
+            }.onFailure { e ->
+                Log.e("ArtistViewModel", "Error loading artist music from backend", e)
+                _artistMusic.value = emptyList()
             }
         }
 

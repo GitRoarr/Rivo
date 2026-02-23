@@ -19,20 +19,6 @@ enum class MusicApprovalStatus {
     indices = [
         androidx.room.Index("artistId"),
         androidx.room.Index("playlistId")
-    ],
-    foreignKeys = [
-        ForeignKey(
-            entity = User::class,
-            parentColumns = ["id"],
-            childColumns = ["artistId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = Playlist::class,
-            parentColumns = ["id"],
-            childColumns = ["playlistId"],
-            onDelete = ForeignKey.SET_NULL
-        )
     ]
 )
 @TypeConverters(Converters::class)

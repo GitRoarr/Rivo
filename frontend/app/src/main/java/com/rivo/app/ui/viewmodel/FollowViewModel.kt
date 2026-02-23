@@ -37,6 +37,20 @@ class FollowViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            try {
+                val session = sessionManager.getCurrentUser()
+                if (session.isLoggedIn && session.userId.isNotBlank()) {
+                    Log.d("FollowViewModel", "Initializing and syncing follows for ${session.userId}")
+                    followRepository.syncFollows(session.userId)
+                }
+            } catch (e: Exception) {
+                Log.e("FollowViewModel", "Error in init sync: ${e.message}")
+            }
+        }
+    }
+
     // Cache for artist follow status
     private val followStatusCache = mutableMapOf<String, MutableStateFlow<Boolean>>()
 

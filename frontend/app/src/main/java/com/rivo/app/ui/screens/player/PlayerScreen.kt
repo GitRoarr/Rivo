@@ -223,18 +223,6 @@ fun PlayerScreen(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Debug info (only in development)
-                debugInfo?.let {
-                    Text(
-                        text = it,
-                        color = Color.Gray,
-                        fontSize = 10.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 

@@ -22,6 +22,10 @@ const {
     getFollowing,
     getAllUsers,
     getUsersAwaitingVerification,
+    likeMusic,
+    unlikeMusic,
+    getLikedSongs,
+    checkLikedSong,
 } = require("../controllers/userController")
 const { protect, admin } = require("../middleware/authMiddleware")
 const { upload } = require("../config/cloudinary")
@@ -39,6 +43,12 @@ router.put("/profile", protect, upload.fields([
     { name: 'profileImage', maxCount: 1 },
     { name: 'coverImage', maxCount: 1 }
 ]), updateUserProfile)
+
+// ── Liked songs routes (must come before /:id wildcard) ─────────────────────
+router.get("/liked-songs", protect, getLikedSongs)
+router.get("/liked-songs/check/:musicId", protect, checkLikedSong)
+router.post("/liked-songs/:musicId", protect, likeMusic)
+router.delete("/liked-songs/:musicId", protect, unlikeMusic)
 
 // ── Routes parameterised by userId (:id) ─────────────────────────────────────
 router.get("/:id", protect, getUserById)

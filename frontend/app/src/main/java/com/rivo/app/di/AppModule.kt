@@ -20,6 +20,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("unused")
 object AppModule {
     private const val DB_NAME = "rivo_db"
 
@@ -66,16 +67,6 @@ object AppModule {
     @Singleton
     fun provideApiService(retrofitClient: RetrofitClient): ApiService =
         retrofitClient.apiService
-
-    @Provides
-    @Singleton
-    fun provideUserRepository(
-        userDao: UserDao,
-        sessionManager: SessionManager,
-        apiService: ApiService,
-        connectivityRepository: ConnectivityRepository
-    ): UserRepository =
-        UserRepository(userDao, sessionManager, apiService, connectivityRepository)
 
 
     @Provides
@@ -126,10 +117,9 @@ object AppModule {
     @Singleton
     fun provideFollowRepository(
         followDao: FollowDao,
-        userDao: UserDao,
         apiService: ApiService
     ): FollowRepository =
-        FollowRepository(followDao, userDao, apiService)
+        FollowRepository(followDao, apiService)
 
     @Provides
     @Singleton

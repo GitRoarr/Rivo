@@ -39,6 +39,12 @@ interface MusicDao {
     @Query("UPDATE music SET isFavorite = :isFavorite WHERE id = :musicId")
     suspend fun updateFavoriteStatus(musicId: String, isFavorite: Boolean)
 
+    @Query("UPDATE music SET isFavorite = 0 WHERE userId = :userId AND isFavorite = 1")
+    suspend fun clearAllFavoritesForUser(userId: String)
+
+    @Query("UPDATE music SET isFavorite = 1, userId = :userId WHERE id = :musicId")
+    suspend fun markAsFavoriteForUser(musicId: String, userId: String)
+
     @Query("UPDATE music SET playCount = playCount + 1 WHERE id = :musicId")
     suspend fun incrementPlayCount(musicId: String)
 

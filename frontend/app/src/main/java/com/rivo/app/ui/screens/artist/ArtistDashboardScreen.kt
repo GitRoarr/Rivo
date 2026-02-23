@@ -39,6 +39,7 @@ import androidx.fragment.app.FragmentActivity
 import coil.compose.AsyncImage
 import com.rivo.app.data.model.ArtistAnalytics
 import com.rivo.app.data.model.Music
+import com.rivo.app.data.remote.MusicCategory
 import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.ArtistDashboardTab
 import com.rivo.app.ui.viewmodel.ArtistViewModel
@@ -164,6 +165,7 @@ fun ArtistDashboardScreen(
                         ArtistDashboardTab.UPLOAD_MUSIC -> UploadTab(
                             isUploading = isUploading,
                             uploadProgress = uploadProgress,
+                            categories = artistViewModel.categories.collectAsState().value,
                             onUploadMusic = { title, genre, description, audioUri, coverImageUri ->
                                 if (audioUri != null) {
                                     artistViewModel.uploadMusic(
@@ -267,11 +269,11 @@ private fun DashboardTabSwitcher(selectedTab: ArtistDashboardTab, onTabSelected:
 // TABS
 // ──────────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UploadTab(
     isUploading: Boolean,
     uploadProgress: Float?,
+    categories: List<MusicCategory>,
     onUploadMusic: (String, String, String, Uri?, Uri?) -> Unit
 ) {
     val context = LocalContext.current
@@ -327,7 +329,13 @@ private fun UploadTab(
                 Text("Genre", style = MaterialTheme.typography.labelMedium.copy(color = LightGray, fontWeight = FontWeight.SemiBold))
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Pop", "Afrobeat", "Hip Hop", "R&B", "Electronic", "Ethiopian", "Rock", "Jazz").forEach { g ->
+                    val genreList = if (categories.isNotEmpty()) {
+                        categories.map { c: MusicCategory -> c.title }
+                    } else {
+                        listOf("Pop", "Afrobeat", "Hip Hop", "R&B", "Electronic", "Ethiopian", "Rock", "Jazz")
+                    }
+                    
+                    genreList.forEach { g ->
                         val selected = genre == g
                         Surface(
                             modifier = Modifier.clickable { genre = g },

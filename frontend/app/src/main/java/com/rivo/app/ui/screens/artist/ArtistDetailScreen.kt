@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -325,20 +326,46 @@ private fun ArtistHeroSection(
             }
 
             if (!isOwnProfile) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onFollowClick,
-                    shape = RoundedCornerShape(12.dp),
-                    border = if (isFollowing) BorderStroke(1.dp, Color(0xFF8A8A8A)) else null,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isFollowing) Color.Transparent else Primary,
-                        contentColor = Color.White
-                    )
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !isFollowing,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
                 ) {
-                    Text(
-                        text = if (isFollowing) "Following" else "Follow Artist",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onFollowClick,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Primary,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "Follow Artist",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                if (isFollowing) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Following",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }

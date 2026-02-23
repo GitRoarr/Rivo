@@ -14,21 +14,9 @@ enum class FeaturedType {
     tableName = "featured_content",
     indices = [
         androidx.room.Index("createdBy"),
-        androidx.room.Index("featuredBy")
-    ],
-    foreignKeys = [
-        ForeignKey(
-            entity = User::class,
-            parentColumns = ["id"],
-            childColumns = ["createdBy"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = User::class,
-            parentColumns = ["id"],
-            childColumns = ["featuredBy"],
-            onDelete = ForeignKey.CASCADE
-        )
+        androidx.room.Index("featuredBy"),
+        androidx.room.Index("contentId"),
+        androidx.room.Index("type")
     ]
 )
 data class FeaturedContent(

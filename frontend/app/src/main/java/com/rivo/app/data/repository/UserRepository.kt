@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
@@ -148,7 +147,7 @@ class UserRepository @Inject constructor(
 
                     if (response.isSuccessful) {
                         val userResponse = response.body()
-                        if (userResponse != null && userResponse.token != null) {
+                        if (userResponse != null) {
                             Log.d("UserRepository", "API login successful for $email")
 
                             sessionManager.saveToken(userResponse.token)
@@ -160,7 +159,7 @@ class UserRepository @Inject constructor(
                                 }
                             }
 
-                            var user = User(
+                            val user = User(
                                 id = userResponse.id,
                                 email = email,
                                 password = hashPassword(password),
@@ -317,6 +316,7 @@ class UserRepository @Inject constructor(
                 return@withContext Result.success(Unit)
             }
         } catch (e: Exception) {
+            Log.e("UserRepository", "promoteUserToArtist failed: ${e.message}")
             userDao.updateUserType(userId, "ARTIST")
             return@withContext Result.success(Unit)
         }
@@ -418,7 +418,15 @@ class UserRepository @Inject constructor(
             if (response.isSuccessful) {
                 val updatedUser = response.body()
                 if (updatedUser != null) {
-                    Result.success(updatedUser)
+                    // Sync with local database while preserving password
+                    val localUser = userDao.getUserByEmail(email)
+                    val userToSave = if (localUser != null) {
+                        updatedUser.copy(password = localUser.password)
+                    } else {
+                        updatedUser
+                    }
+                    userDao.insertUser(userToSave)
+                    Result.success(userToSave)
                 } else {
                     Result.failure(Exception("Empty response body"))
                 }

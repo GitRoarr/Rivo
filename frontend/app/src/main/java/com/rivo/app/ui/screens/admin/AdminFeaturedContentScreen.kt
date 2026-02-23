@@ -1,4 +1,7 @@
 package com.rivo.app.ui.screens.admin
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,8 +39,9 @@ import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
 import com.rivo.app.data.model.UserType
+import androidx.compose.material.icons.outlined.*
 import com.rivo.app.ui.navigation.RivoScreens
-import com.rivo.app.ui.theme.Primary
+import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.AdminViewModel
 import com.rivo.app.ui.viewmodel.MusicViewModel
 import com.rivo.app.utils.ImagePickerHelper
@@ -79,125 +83,187 @@ fun AdminFeaturedContentScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Manage Featured Content", color = Color.White) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
+    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+        // Ambient glow
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(RivoPurple.copy(alpha = 0.12f), DarkBackground)
+                    )
+                )
+        )
+
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                "Feature Management",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black, color = White, letterSpacing = (-0.5).sp
+                                )
+                            )
+                            Text(
+                                "Curate the Explore screen",
+                                style = MaterialTheme.typography.bodySmall.copy(color = LightGray)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    ),
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .clip(CircleShape)
+                                .background(White.copy(0.06f))
+                        ) {
+                            Icon(Icons.Default.ArrowBack, "Back", tint = White)
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { adminViewModel.refreshAllData() },
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .clip(CircleShape)
+                                .background(White.copy(0.06f))
+                        ) {
+                            Icon(Icons.Default.Refresh, "Refresh", tint = White)
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                if (selectedTab == FeaturedTab.BANNERS) {
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        containerColor = RivoPink,
+                        shape = CircleShape,
+                        elevation = FloatingActionButtonDefaults.elevation(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, "Add Banner", tint = White)
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = Primary,
-                contentColor = Color.White
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Featured Content")
-            }
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                Snackbar(
-                    modifier = Modifier.padding(16.dp),
-                    containerColor = Color(0xFF2A2A2A),
-                    contentColor = Color.White,
-                    actionColor = Primary,
-                    snackbarData = data
-                )
-            }
-        },
-        containerColor = Color.Black
-    ) { paddingValues ->
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState) { data ->
+                    Snackbar(
+                        modifier = Modifier.padding(16.dp).clip(RoundedCornerShape(12.dp)),
+                        containerColor = Color(0xFF1E1E1E),
+                        contentColor = White,
+                        actionColor = RivoPink,
+                        snackbarData = data
+                    )
+                }
+            },
+            containerColor = Color.Transparent
+        ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color.Black)
+                .background(Color.Transparent)
         ) {
-            // Tab selector
-            TabRow(
-                selectedTabIndex = selectedTab.ordinal,
-                containerColor = Color(0xFF1E1E1E),
-                contentColor = Primary
+            // Premium Tab Row
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .background(White.copy(0.05f), RoundedCornerShape(24.dp))
+                    .padding(4.dp)
             ) {
-                Tab(
-                    selected = selectedTab == FeaturedTab.BANNERS,
-                    onClick = { selectedTab = FeaturedTab.BANNERS },
-                    text = { Text("Banners", color = if (selectedTab == FeaturedTab.BANNERS) Primary else Color.White) }
-                )
-
-                Tab(
-                    selected = selectedTab == FeaturedTab.SONGS,
-                    onClick = { selectedTab = FeaturedTab.SONGS },
-                    text = { Text("Songs", color = if (selectedTab == FeaturedTab.SONGS) Primary else Color.White) }
-                )
-
-                Tab(
-                    selected = selectedTab == FeaturedTab.ARTISTS,
-                    onClick = { selectedTab = FeaturedTab.ARTISTS },
-                    text = { Text("Artists", color = if (selectedTab == FeaturedTab.ARTISTS) Primary else Color.White) }
-                )
+                FeaturedTab.values().forEach { tab ->
+                    val isSelected = selectedTab == tab
+                    val bgColor by animateColorAsState(
+                        if (isSelected) RivoPurple.copy(0.2f) else Color.Transparent,
+                        label = "tab_bg"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(bgColor)
+                            .clickable { selectedTab = tab },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = tab.name.lowercase().capitalize(),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) White else LightGray,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                }
             }
 
-            // Content based on selected tab
-            when (selectedTab) {
-                FeaturedTab.BANNERS -> {
-                    val banners = featuredContent.filter { it.type == FeaturedType.BANNER }
-                    FeaturedBannersTab(
-                        banners = banners,
-                        onDeleteClick = { showDeleteConfirmDialog = it },
-                        onBannerClick = { banner ->
-                            // Find the music associated with the banner if it has a contentId
-                            banner.contentId?.let { musicId ->
-                                val music = allMusic.find { it.id == musicId }
-                                music?.let {
-                                    playMusicAndNavigate(music, musicViewModel, navController)
+            // Animated Content based on selected tab
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn(tween(300)) + slideInHorizontally { it / 4 } togetherWith
+                    fadeOut(tween(250)) + slideOutHorizontally { -it / 4 }
+                },
+                label = "featured_tab_anim"
+            ) { tab ->
+                when (tab) {
+                    FeaturedTab.BANNERS -> {
+                        val banners = featuredContent.filter { it.type == FeaturedType.BANNER }
+                        FeaturedBannersTab(
+                            banners = banners,
+                            onDeleteClick = { showDeleteConfirmDialog = it },
+                            onBannerClick = { banner ->
+                                banner.contentId?.let { musicId ->
+                                    val music = allMusic.find { it.id == musicId }
+                                    music?.let { playMusicAndNavigate(music, musicViewModel, navController) }
                                 }
                             }
-                        }
-                    )
-                }
-                FeaturedTab.SONGS -> {
-                    val featuredSongs = featuredContent.filter { it.type == FeaturedType.SONG }
-                    FeaturedSongsTab(
-                        featuredSongs = featuredSongs,
-                        allMusic = allMusic,
-                        onDeleteClick = { showDeleteConfirmDialog = it },
-                        onPlayClick = { musicId ->
-                            val music = allMusic.find { it.id == musicId }
-                            music?.let {
-                                playMusicAndNavigate(it, musicViewModel, navController)
+                        )
+                    }
+                    FeaturedTab.SONGS -> {
+                        val featuredSongs = featuredContent.filter { it.type == FeaturedType.SONG }
+                        val isLoading by adminViewModel.isLoading.collectAsState()
+                        FeaturedSongsTab(
+                            featuredSongs = featuredSongs,
+                            allMusic = allMusic,
+                            isLoading = isLoading,
+                            onPinClick = { music -> adminViewModel.featureMusic(music) },
+                            onUnpinClick = { fc -> adminViewModel.removeFeaturedContent(fc.id) },
+                            onPlayClick = { musicId ->
+                                val music = allMusic.find { it.id == musicId }
+                                music?.let { playMusicAndNavigate(it, musicViewModel, navController) }
                             }
-                        }
-                    )
-                }
-                FeaturedTab.ARTISTS -> {
-                    val featuredArtists = featuredContent.filter { it.type == FeaturedType.ARTIST }
-                    FeaturedArtistsTab(
-                        featuredArtists = featuredArtists,
-                        allUsers = allUsers,
-                        onDeleteClick = { showDeleteConfirmDialog = it }
-                    )
+                        )
+                    }
+                    FeaturedTab.ARTISTS -> {
+                        val featuredArtists = featuredContent.filter { it.type == FeaturedType.ARTIST }
+                        val isLoading by adminViewModel.isLoading.collectAsState()
+                        FeaturedArtistsTab(
+                            featuredArtists = featuredArtists,
+                            allUsers = allUsers.filter { it.userType == UserType.ARTIST },
+                            isLoading = isLoading,
+                            onPinClick = { artist -> adminViewModel.featureArtist(artist) },
+                            onUnpinClick = { fc -> adminViewModel.removeFeaturedContent(fc.id) }
+                        )
+                    }
                 }
             }
         }
+    }
 
-        // Add dialog
-        if (showAddDialog) {
-            when (selectedTab) {
-                FeaturedTab.BANNERS -> {
-                    AddBannerDialog(
+        // Add dialog — only for Banners; Songs/Artists use inline pin
+        if (showAddDialog && selectedTab == FeaturedTab.BANNERS) {
+            AddBannerDialog(
                         onDismiss = { showAddDialog = false },
                         onAddBanner = { title, description, imageUri ->
                             currentAdmin?.id?.let { adminId ->
@@ -242,35 +308,6 @@ fun AdminFeaturedContentScreen(
                             showAddDialog = false
                         }
                     )
-                }
-                FeaturedTab.SONGS -> {
-                    AddFeaturedSongDialog(
-                        songs = allMusic,
-                        onDismiss = { showAddDialog = false },
-                        onAddFeaturedSong = { music, description ->
-                            currentAdmin?.id?.let { adminId ->
-                                adminViewModel.featureMusic(music)
-                            }
-                            showAddDialog = false
-                        },
-                        onPlayFeaturedSong = { music ->
-                            playMusicAndNavigate(music, musicViewModel, navController)
-                        }
-                    )
-                }
-                FeaturedTab.ARTISTS -> {
-                    AddFeaturedArtistDialog(
-                        artists = allUsers.filter { it.userType == UserType.ARTIST },
-                        onDismiss = { showAddDialog = false },
-                        onAddFeaturedArtist = { artist, description ->
-                            currentAdmin?.id?.let { adminId ->
-                                adminViewModel.featureArtist(artist)
-                            }
-                            showAddDialog = false
-                        }
-                    )
-                }
-            }
         }
 
         showDeleteConfirmDialog?.let { content ->
@@ -322,14 +359,31 @@ fun FeaturedBannersTab(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(32.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "No featured banners yet.\nAdd one using the + button.",
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Outlined.PhotoLibrary,
+                    null,
+                    tint = White.copy(0.1f),
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "No featured banners yet",
+                    color = White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Add one using the + button to make the home screen look amazing.",
+                    color = LightGray,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     } else {
         LazyColumn(
@@ -472,39 +526,180 @@ fun BannerItem(
 fun FeaturedSongsTab(
     featuredSongs: List<FeaturedContent>,
     allMusic: List<Music>,
-    onDeleteClick: (FeaturedContent) -> Unit,
+    isLoading: Boolean,
+    onPinClick: (Music) -> Unit,
+    onUnpinClick: (FeaturedContent) -> Unit,
     onPlayClick: (String) -> Unit
 ) {
-    if (featuredSongs.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No featured songs yet.\nAdd one using the + button.",
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+    var searchQuery by remember { mutableStateOf("") }
+    val pinnedIds = remember(featuredSongs) { featuredSongs.mapNotNull { it.contentId }.toSet() }
+    val filtered = remember(searchQuery, allMusic) {
+        if (searchQuery.isBlank()) allMusic
+        else allMusic.filter {
+            (it.title ?: "").contains(searchQuery, ignoreCase = true) ||
+            (it.artist ?: "").contains(searchQuery, ignoreCase = true) ||
+            (it.album ?: "").contains(searchQuery, ignoreCase = true)
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(featuredSongs) { featuredSong ->
-                val music = allMusic.find { it.id == featuredSong.contentId }
-                if (music != null) {
-                    FeaturedSongItem(
-                        featuredSong = featuredSong,
-                        music = music,
-                        onDeleteClick = { onDeleteClick(featuredSong) },
-                        onPlayClick = { onPlayClick(music.id) }
-                    )
+    }
+    val pinnedSongs = remember(filtered, pinnedIds) { filtered.filter { it.id in pinnedIds } }
+    val unpinnedSongs = remember(filtered, pinnedIds) { filtered.filter { it.id !in pinnedIds } }
+
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search songs to pin...", color = LightGray) },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = RivoPurple) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, null, tint = LightGray)
+                    }
                 }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = RivoPurple,
+                unfocusedBorderColor = White.copy(0.1f),
+                focusedTextColor = White,
+                unfocusedTextColor = White,
+                cursorColor = RivoPurple,
+                focusedContainerColor = White.copy(0.04f),
+                unfocusedContainerColor = White.copy(0.04f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        )
+        if (isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Primary)
+            }
+        } else if (filtered.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No songs found.", color = Color.Gray)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (pinnedSongs.isNotEmpty()) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.PushPin, null, tint = Primary, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("PINNED TO EXPLORE", color = Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    items(pinnedSongs, key = { it.id }) { song ->
+                        val fc = featuredSongs.find { it.contentId == song.id }
+                        SongPinCard(
+                            song = song, isPinned = true,
+                            onPlayClick = { onPlayClick(song.id) },
+                            onPinToggle = { fc?.let { onUnpinClick(it) } }
+                        )
+                    }
+                }
+                if (unpinnedSongs.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(4.dp))
+                        Text("ALL SONGS", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    items(unpinnedSongs, key = { it.id }) { song ->
+                        SongPinCard(
+                            song = song, isPinned = false,
+                            onPlayClick = { onPlayClick(song.id) },
+                            onPinToggle = { onPinClick(song) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SongPinCard(
+    song: Music,
+    isPinned: Boolean,
+    onPlayClick: () -> Unit,
+    onPinToggle: () -> Unit
+) {
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isPinned) 0.15f else 0f,
+        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Reverse),
+        label = "pin_glow"
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPinned) RivoPurple.copy(0.08f) else White.copy(0.03f)
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isPinned) RivoPurple.copy(0.3f) else White.copy(0.06f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(White.copy(0.06f))
+                    .clickable { onPlayClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (!song.artworkUri.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = song.artworkUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Default.MusicNote, null, tint = LightGray, modifier = Modifier.size(22.dp))
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp)
+            ) {
+                Text(song.title ?: "", color = White, fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.artist ?: "", color = LightGray, fontSize = 12.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (isPinned) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PushPin, null, tint = RivoPurple, modifier = Modifier.size(10.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text("Pinned to explore", color = RivoPurple, fontSize = 10.sp)
+                    }
+                } else {
+                    Text("${formatPlayCount(song.playCount)} · ${song.genre ?: ""}",
+                        color = LightGray.copy(0.6f), fontSize = 10.sp, maxLines = 1)
+                }
+            }
+            IconButton(onClick = onPlayClick) {
+                Icon(Icons.Default.PlayCircle, null, tint = LightGray, modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = onPinToggle) {
+                Icon(
+                    imageVector = Icons.Default.PushPin,
+                    contentDescription = if (isPinned) "Unpin" else "Pin to Explore",
+                    tint = if (isPinned) RivoPurple else LightGray,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
@@ -652,37 +847,179 @@ fun FeaturedSongItem(
 fun FeaturedArtistsTab(
     featuredArtists: List<FeaturedContent>,
     allUsers: List<User>,
-    onDeleteClick: (FeaturedContent) -> Unit
+    isLoading: Boolean,
+    onPinClick: (User) -> Unit,
+    onUnpinClick: (FeaturedContent) -> Unit
 ) {
-    if (featuredArtists.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No featured artists yet.\nAdd one using the + button.",
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+    var searchQuery by remember { mutableStateOf("") }
+    val pinnedIds = remember(featuredArtists) { featuredArtists.mapNotNull { it.contentId }.toSet() }
+    val filtered = remember(searchQuery, allUsers) {
+        if (searchQuery.isBlank()) allUsers
+        else allUsers.filter {
+            (it.name ?: "").contains(searchQuery, ignoreCase = true) ||
+            (it.fullName ?: "").contains(searchQuery, ignoreCase = true)
         }
-    } else {
-        LazyColumn(
+    }
+    val pinnedArtists = remember(filtered, pinnedIds) { filtered.filter { it.id in pinnedIds } }
+    val unpinnedArtists = remember(filtered, pinnedIds) { filtered.filter { it.id !in pinnedIds } }
+    val context = LocalContext.current
+
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Search artists to pin...", color = LightGray) },
+            leadingIcon = { Icon(Icons.Default.Search, null, tint = RivoPink) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, null, tint = LightGray)
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = RivoPink,
+                unfocusedBorderColor = White.copy(0.1f),
+                focusedTextColor = White,
+                unfocusedTextColor = White,
+                cursorColor = RivoPink,
+                focusedContainerColor = White.copy(0.04f),
+                unfocusedContainerColor = White.copy(0.04f)
+            ),
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        )
+        if (isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Primary)
+            }
+        } else if (filtered.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No artists found.", color = Color.Gray)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (pinnedArtists.isNotEmpty()) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.PushPin, null, tint = Primary, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("PINNED TO EXPLORE", color = Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    items(pinnedArtists, key = { it.id }) { artist ->
+                        val fc = featuredArtists.find { it.contentId == artist.id }
+                        ArtistPinCard(
+                            artist = artist, isPinned = true,
+                            onPinToggle = { fc?.let { onUnpinClick(it) } }
+                        )
+                    }
+                }
+                if (unpinnedArtists.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(4.dp))
+                        Text("ALL ARTISTS", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    items(unpinnedArtists, key = { it.id }) { artist ->
+                        ArtistPinCard(
+                            artist = artist, isPinned = false,
+                            onPinToggle = { onPinClick(artist) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ArtistPinCard(
+    artist: User,
+    isPinned: Boolean,
+    onPinToggle: () -> Unit
+) {
+    val context = LocalContext.current
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (isPinned) 0.15f else 0f,
+        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Reverse),
+        label = "pin_glow_art"
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPinned) RivoPink.copy(0.08f) else White.copy(0.03f)
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isPinned) RivoPink.copy(0.3f) else White.copy(0.06f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(featuredArtists) { featuredArtist ->
-                val artist = allUsers.find { it.id == featuredArtist.contentId }
-                if (artist != null) {
-                    FeaturedArtistItem(
-                        featuredArtist = featuredArtist,
-                        artist = artist,
-                        onDeleteClick = { onDeleteClick(featuredArtist) }
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(White.copy(0.06f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!artist.profileImageUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(artist.profileImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = artist.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        (artist.name ?: "?").take(1).uppercase(),
+                        color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold
                     )
                 }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 10.dp)
+            ) {
+                Text(artist.name ?: "", color = White, fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(artist.fullName ?: "", color = LightGray, fontSize = 12.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (isPinned) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.PushPin, null, tint = RivoPink, modifier = Modifier.size(10.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text("Pinned to explore", color = RivoPink, fontSize = 10.sp)
+                    }
+                } else {
+                    Text("${formatCount(artist.followerCount ?: 0)} fans",
+                        color = LightGray.copy(0.6f), fontSize = 10.sp)
+                }
+            }
+            IconButton(onClick = onPinToggle) {
+                Icon(
+                    imageVector = Icons.Default.PushPin,
+                    contentDescription = if (isPinned) "Unpin" else "Pin to Explore",
+                    tint = if (isPinned) RivoPink else LightGray,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }

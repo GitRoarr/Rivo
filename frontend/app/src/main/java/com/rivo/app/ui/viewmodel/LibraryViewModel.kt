@@ -53,6 +53,9 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // First sync playlists from MongoDB Atlas into the local cache
+                playlistRepository.syncUserPlaylistsFromRemote(userId)
+
                 playlistRepository.getPlaylistsByUser(userId).collectLatest { playlists ->
                     _userPlaylists.value = playlists
                     _playlistWithMusicList.clear()
@@ -92,6 +95,9 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // First sync watchlists from MongoDB Atlas into the local cache
+                watchlistRepository.syncUserWatchlistsFromRemote(userId)
+
                 watchlistRepository.getWatchlistsByUser(userId).collectLatest { watchlists ->
                     _userWatchlists.value = watchlists
 

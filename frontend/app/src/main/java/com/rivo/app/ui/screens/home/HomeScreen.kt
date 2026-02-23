@@ -158,15 +158,11 @@ fun HomeScreen(
                 item {
                     RivoHomeHeader(
                         profileImageUrl = currentUser?.profileImageUrl,
+                        userName = currentUser?.fullName?.split(" ")?.firstOrNull() ?: currentUser?.name,
                         unreadCount = unreadCount,
                         onNotificationClick = onNotificationClick,
                         onSearchClick = onSearchClick
                     )
-                }
-
-                // Genre category pills (backend-driven)
-                if (categories.isNotEmpty()) {
-                    item { AnimatedCategoryRow(categories) }
                 }
 
                 // Hero banner carousel
@@ -180,6 +176,16 @@ fun HomeScreen(
                         featuredBanner != null -> FeaturedHero(
                             banner = featuredBanner,
                             onPlayClick = { featuredBanner?.id?.let { onMusicClick(it) } }
+                        )
+                    }
+                }
+
+                // ── Moods & Genres ──────────────────────────────────────
+                if (categories.isNotEmpty()) {
+                    item {
+                        CategoryRow(
+                            categories = categories,
+                            onCategoryClick = { /* Will be implemented in Explore */ }
                         )
                     }
                 }
@@ -227,9 +233,13 @@ fun HomeScreen(
                         ) {
                             itemsIndexed(featuredArtists) { index, artist ->
                                 AnimatedMusicCardEntry(index) {
+                                    val isFollowing by followViewModel.isFollowingArtist(artist.id).collectAsState()
+                                    val followerCount by followViewModel.getArtistFollowerCount(artist.id).collectAsState()
+
                                     PremiumArtistCard(
                                         artist = artist,
-                                        isFollowing = false,
+                                        isFollowing = isFollowing,
+                                        followerCount = followerCount,
                                         onFollowClick = { followViewModel.toggleFollow(artist.id) },
                                         onClick = { onArtistClick(artist.id) }
                                     )
@@ -302,6 +312,7 @@ fun HomeScreen(
 @Composable
 fun RivoHomeHeader(
     profileImageUrl: String?,
+    userName: String? = null,
     unreadCount: Int,
     onNotificationClick: () -> Unit,
     onSearchClick: () -> Unit
@@ -316,6 +327,8 @@ fun RivoHomeHeader(
             else      -> Triple("Good Night", "Late night vibes await you", "🌙")
         }
     }
+
+    val displayGreeting = if (!userName.isNullOrBlank()) "$greetingLine1, $userName" else greetingLine1
 
     // Animate greeting in from below
     var visible by remember { mutableStateOf(false) }
@@ -341,7 +354,7 @@ fun RivoHomeHeader(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = greetingLine1,
+                            text = displayGreeting,
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = White,
@@ -802,37 +815,40 @@ fun FeaturedHero(banner: FeaturedContent?, onPlayClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
-            .padding(horizontal = 24.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .height(140.dp)
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF1A1A2E))
     ) {
-        AsyncImage(
-            model = banner?.imageUrl ?: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.85f)))))
-        Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
-            Surface(color = RivoPink.copy(0.9f), shape = RoundedCornerShape(6.dp)) {
-                Text("FEATURED", Modifier.padding(horizontal = 8.dp, vertical = 3.dp), color = White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(banner?.title ?: "New Sound Vibes", style = MaterialTheme.typography.headlineSmall.copy(color = White, fontWeight = FontWeight.Bold))
-            Spacer(Modifier.height(10.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = banner?.title ?: "Trending Music",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Listen to the most popular tracks",
+                color = Color(0xFFB0B0B0),
+                fontSize = 14.sp
+            )
+            Spacer(Modifier.height(16.dp))
             Button(
                 onClick = onPlayClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                contentPadding = PaddingValues(0.dp),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.height(38.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF)),
+                modifier = Modifier.height(36.dp)
             ) {
-                Box(Modifier.background(Brush.horizontalGradient(listOf(RivoPurple, RivoPink)), RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.PlayArrow, null, tint = White, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Listen Now", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Play", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 15.sp)
                 }
             }
         }

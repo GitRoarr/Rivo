@@ -576,6 +576,8 @@ fun RivoNavGraph(
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            val currentUser by authViewModel.currentUser.collectAsState()
+            
             AdminProfileScreen(
                 onAdminPanelClick = { navController.navigate(RivoScreens.AdminPanel.name) },
                 onManageFeaturedClick = { navController.navigate(RivoScreens.AdminFeaturedContent.name) },
@@ -584,13 +586,13 @@ fun RivoNavGraph(
                 onAboutClick = { navController.navigate(RivoScreens.About.name) },
                 onLogoutClick = {
                     authViewModel.logout()
-                    navController.navigate(RivoScreens.Welcome.name) {
-                        popUpTo(navController.graph.id) { inclusive = true }
+                    navController.navigate(RivoScreens.Login.name) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
-                onEditProfileClick = TODO(),
-                currentUser = TODO(),
-                authViewModel = TODO()
+                onEditProfileClick = { navController.navigate(RivoScreens.EditProfile.name) },
+                currentUser = currentUser,
+                authViewModel = authViewModel
             )
         }
 

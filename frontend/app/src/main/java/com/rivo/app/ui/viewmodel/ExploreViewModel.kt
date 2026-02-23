@@ -65,6 +65,7 @@ class ExploreViewModel @Inject constructor(
     fun refresh() {
         _isLoading.value = true
         viewModelScope.launch {
+            // 1) Load dynamic explore data (backend "amazing" logic)
             val result = musicRepository.getExploreData()
             if (result.isSuccess) {
                 val data = result.getOrNull()
@@ -75,23 +76,19 @@ class ExploreViewModel @Inject constructor(
                     _songs.value = it.featuredMusic
                     _categories.value = it.categories ?: emptyList()
                     _banners.value = it.banners
-                    
-                    // Handle featured banner (backwards compatibility)
-                    if (it.banners.isNotEmpty()) {
-                        val firstBanner = it.banners[0]
-                        _featuredBanner.value = FeaturedContent(
-                            id = firstBanner.id,
-                            contentId = "", // action url might contain id
-                            type = FeaturedType.BANNER,
-                            title = firstBanner.title,
-                            description = firstBanner.subtitle,
-                            imageUrl = firstBanner.imageUrl,
-                            createdBy = "admin",
-                            featuredBy = "admin"
-                        )
-                    }
                 }
             }
+
+            // 2) Refresh admin-managed featured content from MongoDB Atlas
+            try {
+                featuredContentRepository.refreshFeaturedContent()
+            } catch (_: Exception) {
+                // If this fails, we still have explore data above
+            }
+
+            // 3) Use the latest FeaturedContent banner (if any) as the home hero
+            loadFeaturedBanner()
+
             _isLoading.value = false
         }
     }

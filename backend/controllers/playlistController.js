@@ -1,20 +1,28 @@
 const asyncHandler = require("express-async-handler")
 const Playlist = require("../models/playlistModel")
+const Music = require("../models/musicModel")
 
 
-const createPlaylist = asyncHandler(async(req, res) => {
-    const { id, name, description, coverArtUrl, isPublic } = req.body
+const createPlaylist = asyncHandler(async (req, res) => {
+    const { name, description, coverArtUrl, isPublic } = req.body
+    let { id } = req.body
 
-    if (!id || !name) {
+    if (!name) {
         res.status(400)
-        throw new Error("Please provide playlist ID and name")
+        throw new Error("Please provide a playlist name")
+    }
+
+    // If ID is not provided by frontend (Room), generate a unique numeric ID
+    if (!id) {
+        id = Date.now()
     }
 
     const playlistExists = await Playlist.findOne({ id })
 
     if (playlistExists) {
-        res.status(400)
-        throw new Error("Playlist with this ID already exists")
+        // If it exists, we might want to update it or return error. 
+        // For now, let's just use a slightly different ID if it's a conflict
+        id = id + Math.floor(Math.random() * 1000)
     }
 
     const playlist = await Playlist.create({
@@ -36,13 +44,13 @@ const createPlaylist = asyncHandler(async(req, res) => {
 })
 
 
-const getUserPlaylists = asyncHandler(async(req, res) => {
+const getUserPlaylists = asyncHandler(async (req, res) => {
     const playlists = await Playlist.find({ createdBy: req.user.id })
     res.json(playlists)
 })
 
 
-const getPlaylistById = asyncHandler(async(req, res) => {
+const getPlaylistById = asyncHandler(async (req, res) => {
     const playlist = await Playlist.findOne({ id: req.params.id })
 
     if (!playlist) {
@@ -59,7 +67,7 @@ const getPlaylistById = asyncHandler(async(req, res) => {
 })
 
 
-const updatePlaylist = asyncHandler(async(req, res) => {
+const updatePlaylist = asyncHandler(async (req, res) => {
     const playlist = await Playlist.findOne({ id: req.params.id })
 
     if (!playlist) {
@@ -81,7 +89,7 @@ const updatePlaylist = asyncHandler(async(req, res) => {
     res.json(updatedPlaylist)
 })
 
-const deletePlaylist = asyncHandler(async(req, res) => {
+const deletePlaylist = asyncHandler(async (req, res) => {
     const playlist = await Playlist.findOne({ id: req.params.id })
 
     if (!playlist) {
@@ -98,7 +106,7 @@ const deletePlaylist = asyncHandler(async(req, res) => {
     res.json({ message: "Playlist removed" })
 })
 
-const addSongToPlaylist = asyncHandler(async(req, res) => {
+const addSongToPlaylist = asyncHandler(async (req, res) => {
     const { musicId } = req.body
 
     if (!musicId) {
@@ -123,13 +131,21 @@ const addSongToPlaylist = asyncHandler(async(req, res) => {
         throw new Error("Song already in playlist")
     }
 
+    // Amazing Logic: If playlist has no cover art, use this song's cover art
+    if (!playlist.coverArtUrl) {
+        const music = await Music.findById(musicId)
+        if (music && music.coverImageUrl) {
+            playlist.coverArtUrl = music.coverImageUrl
+        }
+    }
+
     playlist.songs.push(musicId)
     const updatedPlaylist = await playlist.save()
 
     res.json(updatedPlaylist)
 })
 
-const removeSongFromPlaylist = asyncHandler(async(req, res) => {
+const removeSongFromPlaylist = asyncHandler(async (req, res) => {
     const playlist = await Playlist.findOne({ id: req.params.id })
 
     if (!playlist) {

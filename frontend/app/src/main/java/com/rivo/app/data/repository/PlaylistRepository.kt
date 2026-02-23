@@ -21,6 +21,31 @@ class PlaylistRepository @Inject constructor(
     private val userRepository: UserRepository,
     private val apiService: ApiService
 ) {
+    /**
+     * Sync the current user's playlists from the MongoDB Atlas backend
+     * into the local Room cache so the Library screen is backend-based.
+     */
+    suspend fun syncUserPlaylistsFromRemote(userId: String) {
+        try {
+            val response = apiService.getUserPlaylists()
+            if (response.isSuccessful) {
+                val remotePlaylists = response.body() ?: emptyList()
+                // These playlists already belong to the authenticated user;
+                // store them locally so the Library UI reflects backend state.
+                remotePlaylists.forEach { playlist ->
+                    playlistDao.insertPlaylist(playlist)
+                }
+            } else {
+                Log.e(
+                    "PlaylistRepository",
+                    "syncUserPlaylistsFromRemote failed: ${response.errorBody()?.string()}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("PlaylistRepository", "Error syncing playlists from remote: ${e.message}", e)
+        }
+    }
+
     suspend fun createPlaylist(playlist: Playlist): Boolean {
         return try {
             val userId = playlist.createdBy ?: ""
@@ -44,9 +69,12 @@ class PlaylistRepository @Inject constructor(
                 )
 
                 if (response.isSuccessful) {
-                    // Save to local DB as well
-                    playlistDao.insertPlaylist(playlist)
-                    return true
+                    val remotePlaylist = response.body()
+                    if (remotePlaylist != null) {
+                        // Save the backend-generated playlist (including its ID) to local DB
+                        playlistDao.insertPlaylist(remotePlaylist)
+                        return true
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("PlaylistRepository", "API createPlaylist failed: ${e.message}", e)
@@ -116,7 +144,8 @@ class PlaylistRepository @Inject constructor(
     }
 
     fun getPlaylistsByUser(userId: String): Flow<List<Playlist>> {
-        // We'll use local DB for this to support offline mode
+        // Returns playlists from the local cache, which is now kept in sync
+        // with MongoDB Atlas via syncUserPlaylistsFromRemote.
         return playlistDao.getPlaylistsByUser(userId)
     }
 

@@ -236,10 +236,6 @@ class MusicViewModel @Inject constructor(
                 if (music != null) {
                     _currentMusic.value = music
 
-                    // Debug info
-                    Log.d("MusicViewModel", "Music found: ${music.title}, path: ${music.path}")
-                    _debugInfo.value = "Path: ${music.path?.take(50)}..."
-
                     playMusic(music)
                 } else {
                     Log.e("MusicViewModel", "Music not found with ID: $musicId")
@@ -256,7 +252,6 @@ class MusicViewModel @Inject constructor(
 
     fun playMusic(music: Music) {
         try {
-            Log.d("MusicViewModel", "Playing music: ${music.title} with path: ${music.path}")
             _currentMusic.value = music
             _isFavorite.value = music.isFavorite
             _isLoading.value = true
@@ -279,9 +274,6 @@ class MusicViewModel @Inject constructor(
                 _isLoading.value = false
                 return
             }
-
-            _debugInfo.value = "Original: ${music.path?.take(30)}...\nResolved: $playableUri"
-            Log.d("MusicViewModel", "Using playable URI: $playableUri")
 
             val mediaItem = MediaItem.Builder()
                 .setUri(playableUri)
@@ -373,8 +365,6 @@ class MusicViewModel @Inject constructor(
 
                     val localUri = Uri.fromFile(tempFile)
 
-                    Log.d("MusicViewModel", "Playing from local copy: $localUri")
-                    _debugInfo.value = "Using local copy: $localUri"
 
                     exoPlayer.stop()
                     exoPlayer.clearMediaItems()
@@ -491,20 +481,31 @@ class MusicViewModel @Inject constructor(
     fun toggleFavorite(musicId: String) {
         viewModelScope.launch {
             try {
-                val music = _allMusic.value.find { it.id == musicId } ?: return@launch
-                val newState = !music.isFavorite
+                // Use _isFavorite for the current playing track (most up-to-date state);
+                // fall back to _allMusic for other tracks.
+                val currentIsFavorite = if (_currentMusic.value?.id == musicId) {
+                    _isFavorite.value
+                } else {
+                    _allMusic.value.find { it.id == musicId }?.isFavorite ?: false
+                }
+                val newState = !currentIsFavorite
 
-                musicRepository.toggleFavorite(musicId, newState)
-
+                // Optimistically update UI state first
                 if (_currentMusic.value?.id == musicId) {
                     _currentMusic.value = _currentMusic.value!!.copy(isFavorite = newState)
                     _isFavorite.value = newState
                 }
 
+                musicRepository.toggleFavorite(musicId, newState)
                 loadFavorites()
             } catch (e: Exception) {
                 Log.e("MusicViewModel", "Error toggling favorite: ${e.message}")
                 _error.value = "Failed to update favorite status: ${e.message}"
+                // Revert optimistic UI update on failure
+                if (_currentMusic.value?.id == musicId) {
+                    _isFavorite.value = !_isFavorite.value
+                    _currentMusic.value = _currentMusic.value?.copy(isFavorite = _isFavorite.value)
+                }
             }
         }
     }

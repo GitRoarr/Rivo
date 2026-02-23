@@ -251,6 +251,19 @@ interface ApiService {
 
     @DELETE("api/featured/{id}")
     suspend fun deleteFeaturedContent(@Path("id") id: String): Response<MessageResponse>
+
+    // ─── Liked songs endpoints ────────────────────────────────────────────────
+    @GET("api/users/liked-songs")
+    suspend fun getLikedSongs(): Response<List<Music>>
+
+    @GET("api/users/liked-songs/check/{musicId}")
+    suspend fun checkLikedSong(@Path("musicId") musicId: String): Response<LikedSongCheckResponse>
+
+    @POST("api/users/liked-songs/{musicId}")
+    suspend fun likeMusic(@Path("musicId") musicId: String): Response<LikedSongResponse>
+
+    @DELETE("api/users/liked-songs/{musicId}")
+    suspend fun unlikeMusic(@Path("musicId") musicId: String): Response<LikedSongResponse>
 }
 
 
@@ -469,4 +482,14 @@ data class FeaturedContentRequest(
     val imageUrl: String? = null,
     val actionUrl: String? = null,
     val order: Int = 0
+)
+
+data class LikedSongResponse(
+    val liked: Boolean,
+    val musicId: String
+)
+
+data class LikedSongCheckResponse(
+    val liked: Boolean,
+    val musicId: String
 )

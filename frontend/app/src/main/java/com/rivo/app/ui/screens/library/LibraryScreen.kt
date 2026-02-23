@@ -56,6 +56,7 @@ fun LibraryScreen(
     
     var selectedTab by remember { mutableStateOf(LibraryTab.PLAYLISTS) }
     var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     
     val scrollState = rememberScrollState()
 
@@ -93,7 +94,7 @@ fun LibraryScreen(
 
             Column(modifier = Modifier.fillMaxSize()) {
                 // Premium Header
-                LibraryHeader(onCreatePlaylistClick)
+                LibraryHeader(onCreateClick = { showCreatePlaylistDialog = true })
 
                 // Sub-header with Stats
                 LibraryStatsRow(
@@ -140,6 +141,17 @@ fun LibraryScreen(
                         }
                     }
                 }
+            }
+            
+            // Create Playlist Dialog
+            if (showCreatePlaylistDialog) {
+                CreatePlaylistDialog(
+                    onDismiss = { showCreatePlaylistDialog = false },
+                    onCreate = { name, desc ->
+                        libraryViewModel.createLibraryItem(name, desc, userId, true)
+                        showCreatePlaylistDialog = false
+                    }
+                )
             }
         }
     }
@@ -420,6 +432,140 @@ fun EmptyLibraryMessage(icon: ImageVector, title: String, message: String) {
             textAlign = TextAlign.Center
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreatePlaylistDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    
+    // Amazing Logic: Auto-suggest description and name based on context
+    LaunchedEffect(Unit) {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        if (name.isBlank()) {
+            name = when {
+                hour in 5..11 -> "Morning Vibes ☕"
+                hour in 12..16 -> "Afternoon Chill ☀️"
+                hour in 17..20 -> "Golden Hour Mix 🌅"
+                else -> "Late Night Drifting 🌙"
+            }
+        }
+    }
+
+    LaunchedEffect(name) {
+        val lower = name.lowercase()
+        if (description.isBlank()) {
+            when {
+                lower.contains("party") || lower.contains("dance") -> description = "Time to dance! 💃"
+                lower.contains("chill") || lower.contains("relax") -> description = "Pure relaxation... 🌊"
+                lower.contains("gym") || lower.contains("workout") -> description = "Push your limits! 💪"
+                lower.contains("sad") || lower.contains("lofi") -> description = "Vibin' in the rain 🌧️"
+                lower.contains("study") -> description = "Deep focus mode 📚"
+                lower.contains("love") || lower.contains("sweet") -> description = "Love is in the air ❤️"
+                lower.contains("morning") -> description = "Start your day right!"
+                lower.contains("night") -> description = "Under the stars..."
+            }
+        }
+    }
+
+    val isReady = name.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.clip(RoundedCornerShape(32.dp)),
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = DarkSurface,
+            shape = RoundedCornerShape(32.dp),
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Brush.linearGradient(listOf(RivoPurple, RivoPink))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.LibraryMusic, contentDescription = null, tint = White, modifier = Modifier.size(40.dp))
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "New Playlist",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = White)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Playlist Name", color = LightGray) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = RivoPink,
+                    unfocusedBorderColor = White.copy(alpha = 0.1f),
+                    focusedTextColor = White,
+                    unfocusedTextColor = White
+                ),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description (Optional)", color = LightGray) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = RivoPink,
+                    unfocusedBorderColor = White.copy(alpha = 0.1f),
+                    focusedTextColor = White,
+                    unfocusedTextColor = White
+                ),
+                shape = RoundedCornerShape(16.dp),
+                maxLines = 3
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Text("Cancel", color = LightGray)
+                }
+
+                Button(
+                    onClick = { onCreate(name, description) },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    enabled = isReady,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = RivoPink,
+                        disabledContainerColor = RivoPink.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Create", color = White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
 }
 
 @Composable
