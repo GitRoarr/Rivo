@@ -75,7 +75,20 @@ class MusicViewModel @Inject constructor(
     private val _debugInfo = MutableStateFlow<String?>(null)
     val debugInfo: StateFlow<String?> = _debugInfo.asStateFlow()
 
-    // Tracks whether we've already recorded a qualifying play for the current track
+    // ─── Play Count Tracking (YouTube-like: count after 45 seconds of real listening) ───
+    companion object {
+        const val PLAY_COUNT_THRESHOLD_MS = 45_000L // 45 seconds
+    }
+    
+    // Set of music IDs that have been counted in this session (to avoid double counting)
+    private val countedPlaysThisSession = mutableSetOf<String>()
+    
+    // Accumulated real listening time (not just position - tracks actual play time)
+    private var accumulatedListenTimeMs = 0L
+    private var lastCheckTimeMs = 0L
+    private var lastKnownPosition = 0L
+    
+    // Job that monitors playback and counts plays after threshold
     private var playCountJob: Job? = null
 
     private val playbackStateListener = object : Player.Listener {
@@ -289,32 +302,77 @@ class MusicViewModel @Inject constructor(
                 _isLoading.value = false
             }
 
-            // Start a job that will record a play only after at least 45 seconds
-            // of listening for this specific track (and only once per user).
+            // ─── YouTube-like Play Count Logic ───────────────────────────────────────
+            // Count a play only after 45 seconds of ACTUAL listening (not seeking).
+            // Only count once per track per session to prevent gaming.
             playCountJob?.cancel()
+            
+            // Reset tracking for new track
+            accumulatedListenTimeMs = 0L
+            lastCheckTimeMs = System.currentTimeMillis()
+            lastKnownPosition = 0L
+            
             playCountJob = viewModelScope.launch {
                 val trackId = music.id
-                val thresholdMs = 45_000L
+                
+                // Skip if already counted this track in this session
+                if (countedPlaysThisSession.contains(trackId)) {
+                    Log.d("MusicViewModel", "Play already counted for $trackId this session")
+                    return@launch
+                }
 
                 try {
                     while (true) {
-                        delay(1000)
-
-                        // Stop if user changed tracks or playback stopped
+                        delay(1000) // Check every second
+                        
                         val current = _currentMusic.value ?: break
-                        if (current.id != trackId || !_isPlaying.value) {
-                            continue
-                        }
-
-                        val position = exoPlayer.currentPosition
-                        if (position >= thresholdMs) {
-                            try {
-                                musicRepository.incrementPlayCountIfFirstTime(trackId)
-                                artistStatsRepository.incrementArtistPlayCount(current.artistId ?: "")
-                            } catch (e: Exception) {
-                                Log.e("MusicViewModel", "Error updating play stats after threshold: ${e.message}")
+                        if (current.id != trackId) break // Track changed
+                        
+                        if (_isPlaying.value) {
+                            val currentPosition = exoPlayer.currentPosition
+                            val currentTime = System.currentTimeMillis()
+                            val timeSinceLastCheck = currentTime - lastCheckTimeMs
+                            
+                            // Calculate position delta - if user seeked, the delta will be very different from time passed
+                            val positionDelta = currentPosition - lastKnownPosition
+                            
+                            // Only count as real listening if position moved forward normally (not seeked)
+                            // Allow some tolerance for buffering/timing issues (±500ms)
+                            val expectedDelta = timeSinceLastCheck
+                            val isNormalPlayback = positionDelta >= 0 && 
+                                                   positionDelta <= expectedDelta + 500 &&
+                                                   positionDelta >= expectedDelta - 500
+                            
+                            if (isNormalPlayback && positionDelta > 0) {
+                                accumulatedListenTimeMs += positionDelta
                             }
-                            break
+                            
+                            lastCheckTimeMs = currentTime
+                            lastKnownPosition = currentPosition
+                            
+                            // Check if threshold reached
+                            if (accumulatedListenTimeMs >= PLAY_COUNT_THRESHOLD_MS) {
+                                Log.d("MusicViewModel", "Play threshold reached for $trackId after ${accumulatedListenTimeMs}ms of listening")
+                                
+                                // Mark as counted immediately to prevent race conditions
+                                countedPlaysThisSession.add(trackId)
+                                
+                                try {
+                                    musicRepository.incrementPlayCountIfFirstTime(trackId)
+                                    current.artistId?.let { artistId ->
+                                        artistStatsRepository.incrementArtistPlayCount(artistId)
+                                    }
+                                    Log.d("MusicViewModel", "Play count incremented for $trackId")
+                                } catch (e: Exception) {
+                                    Log.e("MusicViewModel", "Error incrementing play count: ${e.message}")
+                                    // Remove from counted set so it can retry
+                                    countedPlaysThisSession.remove(trackId)
+                                }
+                                break
+                            }
+                        } else {
+                            // Update timing when paused so we don't count pause time
+                            lastCheckTimeMs = System.currentTimeMillis()
                         }
                     }
                 } catch (e: Exception) {

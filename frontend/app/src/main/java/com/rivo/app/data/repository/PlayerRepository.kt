@@ -53,6 +53,18 @@ class PlayerRepository @Inject constructor(
     private val _queueIndex = MutableStateFlow(0)
     val queueIndex: StateFlow<Int> = _queueIndex.asStateFlow()
 
+    // Play count tracking - YouTube-like logic (count after 45 seconds of listening)
+    companion object {
+        const val PLAY_COUNT_THRESHOLD_MS = 45_000L // 45 seconds in milliseconds
+    }
+    
+    // Set of music IDs that have been counted in this session (to avoid double counting)
+    private val countedPlays = mutableSetOf<String>()
+    
+    // Accumulated listening time for current track (persists across pause/resume)
+    private var accumulatedListenTimeMs = 0L
+    private var lastPlayStartTime = 0L
+
     init {
         initializeMediaPlayer()
     }
@@ -97,23 +109,13 @@ class PlayerRepository @Inject constructor(
                     _duration.value = mp.duration
                     mp.start()
                     _isPlaying.value = true
+                    
+                    // Start tracking listen time for play count
+                    lastPlayStartTime = System.currentTimeMillis()
 
                     // Update notification
                     _currentMusic.value?.let { music ->
                         notificationRepository.showNowPlayingNotification(music, true)
-
-                        // Use Coroutine to call suspend functions safely
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                music.artistId?.let { artistId ->
-                                    artistStatsRepository.incrementArtistPlayCount(artistId)
-                                }
-                                musicRepository.incrementPlayCount(music.id)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                // Log or handle database update failures
-                            }
-                        }
                     }
                 } catch (e: SecurityException) {
                     e.printStackTrace()
@@ -135,6 +137,10 @@ class PlayerRepository @Inject constructor(
     fun playMusic(music: Music) {
         try {
             _currentMusic.value = music
+            
+            // Reset listening time tracking for new song
+            accumulatedListenTimeMs = 0L
+            lastPlayStartTime = 0L
 
             mediaPlayer?.reset()
 

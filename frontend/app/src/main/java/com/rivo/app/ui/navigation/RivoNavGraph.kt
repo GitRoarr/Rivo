@@ -517,7 +517,11 @@ fun RivoNavGraph(
                 onDeleteTrackClick = { music ->
                     artistViewModel.deleteMusic(music.id)
                 },
+                onNotificationClick = {
+                    navController.navigate(RivoScreens.Notification.name)
+                },
                 artistViewModel = artistViewModel,
+                followViewModel = followViewModel
             )
         }
 

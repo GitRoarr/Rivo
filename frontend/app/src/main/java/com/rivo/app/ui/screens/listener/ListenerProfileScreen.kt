@@ -58,6 +58,16 @@ fun ListenerProfileScreen(
     
     val followersCount by followViewModel.getFollowersCount.collectAsState(initial = 0)
     val followingCount by followViewModel.getFollowingCount.collectAsState(initial = 0)
+    val totalPlays by followViewModel.getTotalPlays.collectAsState(initial = 0)
+    
+    // Load stats when user is available
+    LaunchedEffect(user?.id) {
+        user?.id?.let { userId ->
+            followViewModel.loadFollowersCount(userId)
+            followViewModel.loadFollowingCount(userId)
+            followViewModel.loadTotalPlays(userId)
+        }
+    }
     
     val scrollState = rememberScrollState()
     
@@ -269,7 +279,7 @@ fun ListenerProfileScreen(
                         Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.White.copy(alpha = 0.1f)))
                         ProfileStatColumn(count = followingCount.toString(), label = "Following")
                         Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.White.copy(alpha = 0.1f)))
-                        ProfileStatColumn(count = "1.2k", label = "Plays") // Placeholder for now
+                        ProfileStatColumn(count = formatCount(totalPlays), label = "Plays")
                     }
                 }
                 
@@ -489,5 +499,13 @@ fun TopBar(onBackClick: () -> Unit, scrollState: ScrollState, title: String) {
                     .alpha(alpha)
             )
         }
+    }
+}
+
+private fun formatCount(count: Int): String {
+    return when {
+        count < 1000 -> count.toString()
+        count < 1_000_000 -> String.format("%.1fk", count / 1000f)
+        else -> String.format("%.1fM", count / 1_000_000f)
     }
 }

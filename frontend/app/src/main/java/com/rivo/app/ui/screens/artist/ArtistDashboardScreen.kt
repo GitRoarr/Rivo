@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -43,6 +42,7 @@ import com.rivo.app.data.remote.MusicCategory
 import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.ArtistDashboardTab
 import com.rivo.app.ui.viewmodel.ArtistViewModel
+import com.rivo.app.ui.viewmodel.FollowViewModel
 import com.rivo.app.utils.ImagePickerHelper
 import com.rivo.app.utils.MediaAccessHelper
 
@@ -52,10 +52,13 @@ fun ArtistDashboardScreen(
     onBackClick: () -> Unit,
     onEditTrackClick: (Music) -> Unit,
     onDeleteTrackClick: (Music) -> Unit,
-    artistViewModel: ArtistViewModel
+    onNotificationClick: () -> Unit,
+    artistViewModel: ArtistViewModel,
+    followViewModel: FollowViewModel
 ) {
     val artistMusic by artistViewModel.artistMusic.collectAsState()
     val artistAnalytics by artistViewModel.artistAnalytics.collectAsState()
+    val followers by followViewModel.followers.collectAsState()
     val isUploading by artistViewModel.isUploading.collectAsState()
     val uploadProgress by artistViewModel.uploadProgress.collectAsState()
     val operationStatus by artistViewModel.operationStatus.collectAsState()
@@ -68,6 +71,12 @@ fun ArtistDashboardScreen(
         operationStatus?.let {
             snackbarHostState.showSnackbar(it)
             artistViewModel.clearOperationStatus()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        artistViewModel.currentArtist.value?.id?.let { id ->
+            followViewModel.loadFollowers(id)
         }
     }
 
@@ -194,16 +203,35 @@ fun ArtistDashboardScreen(
                                 onUploadNewClick = { artistViewModel.setSelectedTab(ArtistDashboardTab.UPLOAD_MUSIC) }
                             )
                         }
-                        ArtistDashboardTab.ANALYTICS -> AnalyticsTab(
-                            artistAnalytics = artistAnalytics,
-                            artistMusic = artistMusic
-                        )
+                        ArtistDashboardTab.ANALYTICS -> {
+                            var showFollowersSheet by remember { mutableStateOf(false) }
+                            
+                            AnalyticsTab(
+                                artistAnalytics = artistAnalytics,
+                                artistMusic = artistMusic,
+                                onShowFollowers = { showFollowersSheet = true },
+                                onNotificationClick = onNotificationClick
+                            )
+
+                            if (showFollowersSheet) {
+                                ModalBottomSheet(
+                                    onDismissRequest = { showFollowersSheet = false },
+                                    containerColor = DarkSurface,
+                                    scrimColor = Color.Black.copy(alpha = 0.5f)
+                                ) {
+                                    FollowersListSheet(
+                                        followers = followers,
+                                        onClose = { showFollowersSheet = false }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Snackbar
+    
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp, start = 24.dp, end = 24.dp)
@@ -550,7 +578,12 @@ private fun TrackManagementCard(music: Music, onEditClick: () -> Unit, onDeleteC
 }
 
 @Composable
-private fun AnalyticsTab(artistAnalytics: ArtistAnalytics?, artistMusic: List<Music>) {
+private fun AnalyticsTab(
+    artistAnalytics: ArtistAnalytics?,
+    artistMusic: List<Music>,
+    onShowFollowers: () -> Unit,
+    onNotificationClick: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -574,7 +607,7 @@ private fun AnalyticsTab(artistAnalytics: ArtistAnalytics?, artistMusic: List<Mu
                     value = formatNumber(artistAnalytics?.newFollowers ?: 0),
                     icon = Icons.Default.Group,
                     gradient = listOf(RivoPink, RivoPurple),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).clickable { onShowFollowers() }
                 )
             }
         }
@@ -601,7 +634,7 @@ private fun AnalyticsTab(artistAnalytics: ArtistAnalytics?, artistMusic: List<Mu
         if ((artistAnalytics?.unreadNotifications ?: 0) > 0) {
             item {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable { onNotificationClick() },
                     shape = RoundedCornerShape(16.dp),
                     color = RivoPurple.copy(alpha = 0.05f),
                     border = BorderStroke(1.dp, RivoPurple.copy(alpha = 0.1f))
@@ -657,6 +690,100 @@ private fun AnalyticsTab(artistAnalytics: ArtistAnalytics?, artistMusic: List<Mu
         }
 
         item { Spacer(modifier = Modifier.height(100.dp)) }
+    }
+}
+
+@Composable
+private fun FollowersListSheet(followers: List<com.rivo.app.data.model.User>, onClose: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 300.dp, max = 600.dp)
+            .padding(24.dp)
+    ) {
+        Text(
+            text = "Your Followers",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Black,
+                color = White
+            )
+        )
+        Text(
+            text = "${followers.size} people following your journey",
+            style = MaterialTheme.typography.bodySmall.copy(color = LightGray)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        if (followers.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Group, null, tint = DarkGray, modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("No followers yet", color = DarkGray)
+                }
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(followers) { follower ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = White.copy(alpha = 0.05f)
+                        ) {
+                            if (!follower.profileImageUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = follower.profileImageUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Person, null, tint = LightGray)
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        Column {
+                            Text(
+                                text = follower.fullName.ifBlank { follower.name },
+                                color = White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "@${follower.name}",
+                                color = LightGray,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onClose,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = White.copy(alpha = 0.06f))
+        ) {
+            Text("Close", color = White, fontWeight = FontWeight.Bold)
+        }
+        
+        Spacer(modifier = Modifier.navigationBarsPadding())
     }
 }
 

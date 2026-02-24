@@ -21,10 +21,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.rivo.app.data.model.User
 import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.AdminViewModel
+import kotlinx.coroutines.launch
 
 enum class AdminTab {
     DASHBOARD, USERS, MUSIC, VERIFICATION
@@ -41,6 +43,7 @@ fun AdminPanelScreen(
     adminViewModel: AdminViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(AdminTab.DASHBOARD) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val users by adminViewModel.allUsers.collectAsState()
     val pendingVerifications by adminViewModel.pendingVerifications.collectAsState()
@@ -49,6 +52,15 @@ fun AdminPanelScreen(
     val featuredSongs by adminViewModel.featuredSongs.collectAsState()
     val featuredArtists by adminViewModel.featuredArtists.collectAsState()
     val stats by adminViewModel.platformStats.collectAsState()
+    val operationStatus by adminViewModel.operationStatus.collectAsState()
+
+    // Show snackbar whenever an operation completes
+    LaunchedEffect(operationStatus) {
+        operationStatus?.let {
+            snackbarHostState.showSnackbar(it)
+            adminViewModel.clearOperationStatus()
+        }
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "panel_glow")
     val glowAlpha by infiniteTransition.animateFloat(
@@ -58,6 +70,43 @@ fun AdminPanelScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+        // Snackbar for operation feedback
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+                .zIndex(10f),
+            snackbar = { data ->
+                val isError = data.visuals.message.startsWith("Failed")
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isError) Color.Red.copy(alpha = 0.92f) else Color(0xFF1DB954).copy(alpha = 0.92f),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            if (isError) Icons.Default.ErrorOutline else Icons.Default.CheckCircle,
+                            null,
+                            tint = White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            data.visuals.message,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
+        )
+
         // Ambient glow
         Box(
             modifier = Modifier
@@ -214,7 +263,8 @@ fun AdminPanelScreen(
                         onSuspendUser = { adminViewModel.suspendUser(it) },
                         onMakeAdmin = { adminViewModel.makeAdmin(it) },
                         onMakeArtist = { adminViewModel.makeArtist(it) },
-                        onFeatureArtist = { adminViewModel.featureArtist(it) }
+                        onFeatureArtist = { adminViewModel.featureArtist(it) },
+                        onDeleteUser = { adminViewModel.deleteUser(it) }
                     )
                     AdminTab.MUSIC -> MusicTab(
                         onRemoveFromFeaturedClick = { adminViewModel.removeFromFeatured(it) },

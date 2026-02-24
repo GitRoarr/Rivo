@@ -36,14 +36,14 @@ class FollowRepository @Inject constructor(
         }
     }
 
-    suspend fun isFollowing(userId: String, artistId: String): Boolean {
+    suspend fun isFollowing(artistId: String): Boolean {
         return try {
-            val response = apiService.getUserFollowing(userId)
+            val response = apiService.checkFollowStatus(artistId)
             if (response.isSuccessful) {
-                val following = response.body() ?: emptyList()
-                following.any { it.id == artistId }
+                response.body()?.isFollowing ?: false
             } else false
         } catch (e: Exception) {
+            Log.e("FollowRepository", "Error checking follow status: ${e.message}")
             false
         }
     }
@@ -81,6 +81,16 @@ class FollowRepository @Inject constructor(
             if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    suspend fun getListenerTotalPlays(userId: String): Int {
+        return try {
+            val response = apiService.getListenerStats(userId)
+            if (response.isSuccessful) response.body()?.totalPlays ?: 0 else 0
+        } catch (e: Exception) {
+            Log.e("FollowRepository", "Error getting listener stats: ${e.message}")
+            0
         }
     }
 }

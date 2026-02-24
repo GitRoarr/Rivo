@@ -1,8 +1,10 @@
 package com.rivo.app.ui.screens.artist
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +35,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -326,45 +329,73 @@ private fun ArtistHeroSection(
             }
 
             if (!isOwnProfile) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !isFollowing,
-                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
-                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = onFollowClick,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Primary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text(
-                                text = "Follow Artist",
-                                fontWeight = FontWeight.Bold
-                            )
+                Spacer(modifier = Modifier.height(18.dp))
+                
+                Box {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = isFollowing,
+                        transitionSpec = {
+                            (fadeIn() + scaleIn()).togetherWith(fadeOut() + scaleOut())
+                        },
+                        label = "follow_button_anim"
+                    ) { following ->
+                        if (!following) {
+                            // High-impact Follow button
+                            Button(
+                                onClick = onFollowClick,
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Primary,
+                                    contentColor = Color.White
+                                ),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow, // Using as a "join" indicator or similar
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp).graphicsLayer(rotationZ = -90f)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Follow Artist",
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                            }
+                        } else {
+                            // "Following" button - glassmorphic/outlined style
+                            OutlinedButton(
+                                onClick = onFollowClick,
+                                shape = RoundedCornerShape(20.dp),
+                                border = BorderStroke(1.5.dp, Primary.copy(alpha = 0.6f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color.White
+                                ),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                                modifier = Modifier.background(
+                                    Color.White.copy(alpha = 0.05f),
+                                    RoundedCornerShape(20.dp)
+                                )
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = Primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Following",
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                            }
                         }
-                    }
-                }
-
-                if (isFollowing) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Following",
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
                     }
                 }
             }

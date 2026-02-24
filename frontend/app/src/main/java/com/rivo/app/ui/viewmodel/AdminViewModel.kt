@@ -191,6 +191,18 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun deleteUser(userId: String) {
+        viewModelScope.launch {
+            val result = userRepository.deleteAccount(userId)
+            if (result.isSuccess) {
+                _operationStatus.value = "User deleted"
+                userRepository.refreshAllUsers()
+            } else {
+                _operationStatus.value = "Failed to delete user"
+            }
+        }
+    }
+
     fun approveMusic(musicId: String) {
         viewModelScope.launch {
             Log.d("AdminViewModel", "Approving music: $musicId")

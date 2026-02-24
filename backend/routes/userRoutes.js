@@ -20,6 +20,7 @@ const {
     unfollowUser,
     getFollowers,
     getFollowing,
+    checkFollowStatus,
     getAllUsers,
     getUsersAwaitingVerification,
     likeMusic,
@@ -50,6 +51,10 @@ router.get("/liked-songs/check/:musicId", protect, checkLikedSong)
 router.post("/liked-songs/:musicId", protect, likeMusic)
 router.delete("/liked-songs/:musicId", protect, unlikeMusic)
 
+// Admin-only management (must come BEFORE /:id wildcard)
+router.get("/", protect, admin, getAllUsers)
+router.get("/verification/pending", protect, admin, getUsersAwaitingVerification)
+
 // ── Routes parameterised by userId (:id) ─────────────────────────────────────
 router.get("/:id", protect, getUserById)
 router.delete("/:id", protect, deleteUser)
@@ -59,6 +64,7 @@ router.post("/:id/follow", protect, followUser)
 router.delete("/:id/follow", protect, unfollowUser)
 router.get("/:id/followers", protect, getFollowers)
 router.get("/:id/following", protect, getFollowing)
+router.get("/:id/is-following", protect, checkFollowStatus)
 
 // Verification (artist submits, admin reviews)
 router.post("/:id/verification", protect, upload.fields([
@@ -68,9 +74,6 @@ router.post("/:id/verification", protect, upload.fields([
 router.get("/:id/verification", protect, getVerificationStatus)
 router.put("/:id/verification", protect, admin, updateVerificationStatus)
 
-// Admin-only management
-router.get("/", protect, admin, getAllUsers)
-router.get("/verification/pending", protect, admin, getUsersAwaitingVerification)
 router.put("/:id/type", protect, admin, updateUserType)
 router.put("/:id/approve", protect, admin, approveArtist)
 router.put("/:id/suspend", protect, admin, suspendUser)

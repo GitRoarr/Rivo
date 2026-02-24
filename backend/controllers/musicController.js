@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler")
 const Music = require("../models/musicModel")
 const User = require("../models/userModel")
+const MusicPlayed = require("../models/musicPlayedModel")
 
 // @desc    Get all approved music (public) or all music (admin)
 // @route   GET /api/music
@@ -162,16 +163,47 @@ const getMusicByArtist = asyncHandler(async (req, res) => {
     res.json(music)
 })
 
-// @desc    Increment play count
+// @desc    Increment play count (YouTube-like: deduplicates per user per 24 hours)
 // @route   POST /api/music/:id/play
-// @access  Public
+// @access  Public (optionally records userId if provided)
 const incrementPlays = asyncHandler(async (req, res) => {
     const music = await Music.findById(req.params.id)
 
     if (music) {
+        const userId = req.body.userId || (req.user ? req.user._id : null)
+        
+        // If userId is provided, check for duplicate plays within 24 hours
+        if (userId) {
+            const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+            
+            const existingPlay = await MusicPlayed.findOne({
+                userId,
+                musicId: music._id,
+                playedAt: { $gte: twentyFourHoursAgo }
+            })
+            
+            if (existingPlay) {
+                // User already played this song within 24 hours - don't count again
+                return res.json({ 
+                    plays: music.plays, 
+                    counted: false,
+                    message: "Already counted within 24 hours" 
+                })
+            }
+            
+            // Record new play event
+            await MusicPlayed.create({
+                userId,
+                musicId: music._id,
+                playedAt: new Date()
+            })
+        }
+        
+        // Increment the play count
         music.plays += 1
         await music.save()
-        res.json({ plays: music.plays })
+
+        res.json({ plays: music.plays, counted: true })
     } else {
         res.status(404)
         throw new Error("Music not found")

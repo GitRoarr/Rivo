@@ -61,6 +61,9 @@ interface ApiService {
     @GET("api/users/{id}/following")
     suspend fun getUserFollowing(@Path("id") userId: String): Response<List<User>>
 
+    @GET("api/users/{id}/is-following")
+    suspend fun checkFollowStatus(@Path("id") artistId: String): Response<FollowStatusResponse>
+
     // Verification
     @Multipart
     @POST("api/users/{id}/verification")
@@ -247,6 +250,9 @@ interface ApiService {
     @GET("api/stats/admin")
     suspend fun getAdminStats(): Response<AdminStatsResponse>
 
+    @GET("api/stats/listener/{userId}")
+    suspend fun getListenerStats(@Path("userId") userId: String): Response<ListenerStatsResponse>
+
     // Admin general management
     @GET("api/users")
     suspend fun getAllUsers(): Response<List<User>>
@@ -401,6 +407,10 @@ data class PlayCountResponse(
     val plays: Int
 )
 
+data class ListenerStatsResponse(
+    val totalPlays: Int
+)
+
 data class SearchResponse(
     val music: List<Music>,
     val artists: List<User>
@@ -508,4 +518,8 @@ data class LikedSongResponse(
 data class LikedSongCheckResponse(
     val liked: Boolean,
     val musicId: String
+)
+
+data class FollowStatusResponse(
+    val isFollowing: Boolean
 )

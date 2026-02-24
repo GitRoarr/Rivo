@@ -34,6 +34,9 @@ class UserRepository @Inject constructor(
     private val _allUsers = kotlinx.coroutines.flow.MutableStateFlow<List<User>>(emptyList())
     val allUsers: kotlinx.coroutines.flow.StateFlow<List<User>> = _allUsers.asStateFlow()
 
+    private val _pendingVerificationUsers = kotlinx.coroutines.flow.MutableStateFlow<List<User>>(emptyList())
+    val pendingVerificationUsers: kotlinx.coroutines.flow.StateFlow<List<User>> = _pendingVerificationUsers.asStateFlow()
+
     suspend fun registerUser(
         fullName: String,
         name: String,
@@ -146,7 +149,8 @@ class UserRepository @Inject constructor(
         try {
             val response = apiService.getUsersAwaitingVerification()
             if (response.isSuccessful && response.body() != null) {
-                _allUsers.value = response.body()!!
+                // Store pending verifications separately — do NOT overwrite _allUsers
+                _pendingVerificationUsers.value = response.body()!!
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh pending verifications"))

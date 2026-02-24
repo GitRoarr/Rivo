@@ -16,20 +16,17 @@ const registerUser = asyncHandler(async (req, res) => {
 
     console.log("Register request received:", { id, email, name, fullName, userType })
 
-    // Ensure all required fields are provided
     if (!email || !password || !name || !fullName || !userType) {
         res.status(400)
         throw new Error("Please provide all required fields")
     }
 
-    // Check if the user already exists
     const userExists = await User.findOne({ email })
     if (userExists) {
         res.status(400)
         throw new Error("User already exists")
     }
 
-    // Create a new user
     const user = await User.create({
         _id: id, // Use the provided ID
         email,
@@ -412,10 +409,30 @@ const followUser = asyncHandler(async (req, res) => {
         throw new Error("You cannot follow yourself")
     }
 
-    const follow = await Follow.create({
-        followerId,
-        followingId,
-    })
+    // Check if already following — prevet duplicate follows
+    const existingFollow = await Follow.findOne({ followerId, followingId })
+    if (existingFollow) {
+        return res.status(200).json({ message: "Already following" })
+    }
+
+    await Follow.create({ followerId, followingId })
+
+    // Create notification for the followed user
+    try {
+        const User = require("../models/userModel")
+        const Notification = require("../models/notificationModel")
+        const follower = await User.findById(followerId)
+
+        await Notification.create({
+            user: followingId,
+            title: "New Follower",
+            message: `${follower.name} started following you!`,
+            type: "FOLLOW",
+            relatedId: followerId.toString()
+        })
+    } catch (err) {
+        console.error("Follow notification failed:", err.message)
+    }
 
     res.status(201).json({ message: "Followed successfully" })
 })
@@ -439,6 +456,17 @@ const getFollowing = asyncHandler(async (req, res) => {
     const follows = await Follow.find({ followerId: req.params.id }).populate("followingId", "name email profileImageUrl")
     const following = follows.map(f => f.followingId)
     res.json(following)
+})
+
+// @desc    Check if current user follows a specific user
+// @route   GET /api/users/:id/is-following
+// @access  Private
+const checkFollowStatus = asyncHandler(async (req, res) => {
+    const followingId = req.params.id
+    const followerId = req.user._id
+
+    const existingFollow = await Follow.findOne({ followerId, followingId })
+    res.json({ isFollowing: !!existingFollow })
 })
 
 // @desc    Get all users (Admin only)
@@ -543,6 +571,7 @@ module.exports = {
     unfollowUser,
     getFollowers,
     getFollowing,
+    checkFollowStatus,
     getAllUsers,
     getUsersAwaitingVerification,
     likeMusic,

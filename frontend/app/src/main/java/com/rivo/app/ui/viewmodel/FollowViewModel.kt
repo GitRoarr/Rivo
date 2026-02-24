@@ -28,6 +28,9 @@ class FollowViewModel @Inject constructor(
     private val _followingCount = MutableStateFlow(0)
     val getFollowingCount: StateFlow<Int> = _followingCount.asStateFlow()
 
+    private val _totalPlays = MutableStateFlow(0)
+    val getTotalPlays: StateFlow<Int> = _totalPlays.asStateFlow()
+
     private val _followers = MutableStateFlow<List<User>>(emptyList())
     val followers: StateFlow<List<User>> = _followers.asStateFlow()
 
@@ -60,9 +63,9 @@ class FollowViewModel @Inject constructor(
     fun checkFollowStatus(artistId: String) {
         viewModelScope.launch {
             try {
-                val currentUser = sessionManager.getCurrentUser()
-                if (currentUser != null) {
-                    _isFollowing.value = followRepository.isFollowing(currentUser.email, artistId)
+                val session = sessionManager.getCurrentUser()
+                if (session.isLoggedIn) {
+                    _isFollowing.value = followRepository.isFollowing(artistId)
                     Log.d("FollowViewModel", "Follow status for $artistId: ${_isFollowing.value}")
                 }
             } catch (e: Exception) {
@@ -91,30 +94,32 @@ class FollowViewModel @Inject constructor(
                     return@launch
                 }
 
-                val currentUserId = session.email
-                if (currentUserId.isNotBlank()) {
-                    if (_isFollowing.value) {
-                        Log.d("FollowViewModel", "Unfollowing artist: $artistId")
-                        followRepository.unfollowArtist(artistId)
+                if (_isFollowing.value) {
+                    Log.d("FollowViewModel", "Unfollowing artist: $artistId")
+                    val result = followRepository.unfollowArtist(artistId)
+                    if (result.isSuccess) {
                         _isFollowing.value = false
                         _followersCount.value = (_followersCount.value - 1).coerceAtLeast(0)
-
+                        
                         // Update cache
                         followStatusCache[artistId]?.value = false
                         followerCountCache[artistId]?.value = (followerCountCache[artistId]?.value ?: 1) - 1
                     } else {
-                        Log.d("FollowViewModel", "Following artist: $artistId")
-                        followRepository.followArtist(artistId)
+                        _error.value = result.exceptionOrNull()?.message ?: "Failed to unfollow"
+                    }
+                } else {
+                    Log.d("FollowViewModel", "Following artist: $artistId")
+                    val result = followRepository.followArtist(artistId)
+                    if (result.isSuccess) {
                         _isFollowing.value = true
                         _followersCount.value += 1
 
                         // Update cache
                         followStatusCache[artistId]?.value = true
                         followerCountCache[artistId]?.value = (followerCountCache[artistId]?.value ?: 0) + 1
+                    } else {
+                        _error.value = result.exceptionOrNull()?.message ?: "Failed to follow"
                     }
-                } else {
-                    Log.e("FollowViewModel", "Cannot toggle follow: current user email is blank")
-                    _error.value = "You need to be logged in to follow artists"
                 }
             } catch (e: Exception) {
                 Log.e("FollowViewModel", "Error toggling follow: ${e.message}", e)
@@ -140,6 +145,20 @@ class FollowViewModel @Inject constructor(
         }
     }
 
+    // Load followers list for an artist
+    fun loadFollowers(artistId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("FollowViewModel", "Loading followers for $artistId")
+                _followers.value = followRepository.getFollowers(artistId)
+                Log.d("FollowViewModel", "Loaded ${_followers.value.size} followers")
+            } catch (e: Exception) {
+                Log.e("FollowViewModel", "Error loading followers: ${e.message}", e)
+                _error.value = "Failed to load followers: ${e.message}"
+            }
+        }
+    }
+
     // Load following count for a user
     fun loadFollowingCount(userId: String) {
         viewModelScope.launch {
@@ -148,6 +167,19 @@ class FollowViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("FollowViewModel", "Error loading following count: ${e.message}", e)
                 _error.value = "Failed to load following count: ${e.message}"
+            }
+        }
+    }
+
+    // Load total plays count for a listener
+    fun loadTotalPlays(userId: String) {
+        viewModelScope.launch {
+            try {
+                _totalPlays.value = followRepository.getListenerTotalPlays(userId)
+                Log.d("FollowViewModel", "Total plays for $userId: ${_totalPlays.value}")
+            } catch (e: Exception) {
+                Log.e("FollowViewModel", "Error loading total plays: ${e.message}", e)
+                _error.value = "Failed to load total plays: ${e.message}"
             }
         }
     }
@@ -220,7 +252,7 @@ class FollowViewModel @Inject constructor(
             try {
                 val currentUser = sessionManager.getCurrentUser()
                 if (currentUser != null) {
-                    val isFollowing = followRepository.isFollowing(currentUser.email, artistId)
+                    val isFollowing = followRepository.isFollowing(artistId)
                     followStatusFlow.value = isFollowing
                 }
             } catch (e: Exception) {
