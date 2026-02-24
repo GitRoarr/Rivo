@@ -1,21 +1,13 @@
 package com.rivo.app.data.model
 
-import androidx.room.Entity
-import androidx.room.Ignore
-import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
-import androidx.room.TypeConverters
-import com.rivo.app.data.local.Converters
 import java.util.Date
 
 enum class UserType {
     LISTENER, ARTIST, ADMIN, GUEST
 }
 
-@Entity(tableName = "users")
-@TypeConverters(Converters::class)
 data class User(
-    @PrimaryKey
     @SerializedName("_id", alternate = ["id"])
     val id: String = "",
     val email: String = "",
@@ -46,6 +38,5 @@ data class User(
     val primaryGenre: String? = null,
     val socialLinks: Map<String, String> = emptyMap()
 ) {
-    @get:Ignore
     val profilePictureUrl: String? get() = profileImageUrl // Safe getter alias for backward compatibility
 }

@@ -13,7 +13,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.rivo.app.MainActivity
 import com.rivo.app.R
-import com.rivo.app.data.local.NotificationDao
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.Notification
 import com.rivo.app.data.model.NotificationType
@@ -25,16 +24,23 @@ import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 @Singleton
 class NotificationRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val dao: NotificationDao,
     private val apiService: ApiService
 ) {
+    private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
+    val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
+
     companion object {
         private const val TAG = "NotificationRepo"
         private const val CHANNEL_ID = "rivo_channel"
@@ -129,44 +135,65 @@ class NotificationRepository @Inject constructor(
 
     /*** In-app notification data operations ***/
 
-    fun getNotifications(): Flow<List<Notification>> =
-        dao.getAllNotifications()
+    fun getNotifications(): Flow<List<Notification>> {
+        refreshNotificationsBackground()
+        return notifications
+    }
 
-    suspend fun getUnreadCount(): Int =
-        dao.countUnread()
+    private fun refreshNotificationsBackground() {
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            syncNotifications()
+        }
+    }
+
+    suspend fun getUnreadCount(): Int {
+        return notifications.value.count { !it.isRead }
+    }
 
     suspend fun markAsRead(id: String) {
-        dao.markAsRead(id)
-        try { apiService.markNotificationAsRead(id) } catch (_: Exception) {}
+        try {
+            apiService.markNotificationAsRead(id)
+            syncNotifications()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error marking as read: ${e.message}")
+        }
     }
 
     suspend fun markAllAsRead() {
-        dao.markAllAsRead()
-        try { apiService.markAllNotificationsAsRead() } catch (_: Exception) {}
+        try {
+            apiService.markAllNotificationsAsRead()
+            syncNotifications()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error marking all read: ${e.message}")
+        }
     }
 
     suspend fun deleteNotification(id: String) {
-        dao.deleteById(id)
-        try { apiService.deleteNotification(id) } catch (_: Exception) {}
+        try {
+            apiService.deleteNotification(id)
+            syncNotifications()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting notification: ${e.message}")
+        }
     }
 
     suspend fun clearAllNotifications() {
-        dao.clearAll()
-        try { apiService.clearAllNotifications() } catch (_: Exception) {}
+        try {
+            apiService.clearAllNotifications()
+            _notifications.value = emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing notifications: ${e.message}")
+        }
     }
 
-    /**
-     * Sync notifications from backend to local DB
-     */
     suspend fun syncNotifications() {
         try {
             val response = apiService.getNotifications()
             if (response.isSuccessful) {
                 val remoteNotifications = response.body() ?: return
-                // Clear old and store fresh
-                dao.clearAll()
-                remoteNotifications.forEach { remote ->
-                    val notification = Notification(
+                val localNotifications = remoteNotifications.map { remote ->
+                    Notification(
                         id = remote.id,
                         userId = remote.user,
                         title = remote.title,
@@ -176,17 +203,14 @@ class NotificationRepository @Inject constructor(
                         isRead = remote.isRead,
                         relatedContentId = remote.relatedId
                     )
-                    dao.insert(notification)
                 }
+                _notifications.value = localNotifications
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing notifications: ${e.message}")
         }
     }
 
-    /**
-     * Create notification both locally and via backend API
-     */
     suspend fun createNotification(
         userId: String,
         type: NotificationType,
@@ -194,20 +218,6 @@ class NotificationRepository @Inject constructor(
         message: String,
         relatedId: String? = null
     ) {
-        // Store locally
-        val notification = Notification(
-            id = UUID.randomUUID().toString(),
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            timestamp = Date(),
-            isRead = false,
-            relatedContentId = relatedId
-        )
-        dao.insert(notification)
-
-        // Attempt to send to backend
         try {
             apiService.createNotification(
                 CreateNotificationRequest(
@@ -218,6 +228,7 @@ class NotificationRepository @Inject constructor(
                     relatedId = relatedId
                 )
             )
+            syncNotifications()
         } catch (e: Exception) {
             Log.e(TAG, "Error creating remote notification: ${e.message}")
         }

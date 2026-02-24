@@ -1,12 +1,7 @@
 package com.rivo.app.data.model
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.ForeignKey
 import com.google.gson.annotations.SerializedName
-import androidx.room.PrimaryKey
-import androidx.room.TypeConverters
-import com.rivo.app.data.local.Converters
+import java.util.Date
 
 enum class MusicApprovalStatus {
     PENDING,
@@ -14,16 +9,7 @@ enum class MusicApprovalStatus {
     REJECTED
 }
 
-@Entity(
-    tableName = "music",
-    indices = [
-        androidx.room.Index("artistId"),
-        androidx.room.Index("playlistId")
-    ]
-)
-@TypeConverters(Converters::class)
 data class Music(
-    @PrimaryKey
     @SerializedName("_id", alternate = ["id"])
     val id: String = "",
     
@@ -51,7 +37,7 @@ data class Music(
     val playCount: Int = 0,
     
     @SerializedName("createdAt")
-    val uploadDate: java.util.Date? = java.util.Date(),
+    val uploadDate: Date? = Date(),
     
     @SerializedName("isApproved")
     val isApproved: Boolean = false,
@@ -59,14 +45,8 @@ data class Music(
     val description: String? = null,
     val genre: String? = null,
     
-    @ColumnInfo(name = "userId") val userId: String? = null,
-
-    var approvalStatus: MusicApprovalStatus = MusicApprovalStatus.PENDING
+    val userId: String? = null
 ) {
-    init {
-        // Automatically sync approvalStatus with isApproved when coming from network
-        if (isApproved && approvalStatus == MusicApprovalStatus.PENDING) {
-            approvalStatus = MusicApprovalStatus.APPROVED
-        }
-    }
+    val approvalStatus: MusicApprovalStatus
+        get() = if (isApproved) MusicApprovalStatus.APPROVED else MusicApprovalStatus.PENDING
 }

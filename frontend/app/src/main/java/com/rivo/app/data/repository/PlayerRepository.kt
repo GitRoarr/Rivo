@@ -106,7 +106,7 @@ class PlayerRepository @Inject constructor(
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 music.artistId?.let { artistId ->
-                                    artistStatsRepository.incrementPlayCount(artistId)
+                                    artistStatsRepository.incrementArtistPlayCount(artistId)
                                 }
                                 musicRepository.incrementPlayCount(music.id)
                             } catch (e: Exception) {

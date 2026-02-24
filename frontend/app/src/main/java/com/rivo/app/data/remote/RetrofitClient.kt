@@ -17,8 +17,7 @@ class RetrofitClient @Inject constructor(
 ) {
     companion object {
         // Use your computer's IP for physical device testing
-        private const val BASE_URL = "http://192.168.8.49:5000/"
-    }
+        private const val BASE_URL = "http://10.95.184.220:5000/"    }
 
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()

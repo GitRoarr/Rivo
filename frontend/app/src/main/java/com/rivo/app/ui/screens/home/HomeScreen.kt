@@ -3,7 +3,10 @@ package com.rivo.app.ui.screens.home
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -19,15 +22,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.util.lerp as floatLerp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.rivo.app.R
 import com.rivo.app.data.model.FeaturedContent
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
@@ -64,7 +77,6 @@ fun HomeScreen(
     val isLoading       by exploreViewModel.isLoading.collectAsState()
     val featuredBanner  by exploreViewModel.featuredBanner.collectAsState()
     val categories      by exploreViewModel.categories.collectAsState()
-    val banners         by exploreViewModel.banners.collectAsState()
     val currentUser     by sessionViewModel.currentUser.collectAsState()
     val unreadCount     by notificationViewModel.unreadCount.collectAsState()
 
@@ -137,7 +149,7 @@ fun HomeScreen(
 
         // ── Loading shimmer ──────────────────────────────────────────────────
         AnimatedVisibility(
-            visible = isLoading && trendingMusic.isEmpty() && banners.isEmpty(),
+            visible = isLoading && trendingMusic.isEmpty() && songs.isEmpty(),
             enter = fadeIn(),
             exit = fadeOut(tween(400))
         ) {
@@ -146,7 +158,7 @@ fun HomeScreen(
 
         // ── Main content ─────────────────────────────────────────────────────
         AnimatedVisibility(
-            visible = !isLoading || trendingMusic.isNotEmpty() || banners.isNotEmpty(),
+            visible = !isLoading || trendingMusic.isNotEmpty() || songs.isNotEmpty(),
             enter = fadeIn(tween(700)),
             exit = fadeOut()
         ) {
@@ -165,27 +177,17 @@ fun HomeScreen(
                     )
                 }
 
-                // Hero banner carousel
+                // Hero banner carousel with featured music
                 item {
                     Spacer(Modifier.height(8.dp))
                     when {
-                        banners.isNotEmpty() -> ModernBannerCarousel(
-                            banners = banners,
-                            onExploreClick = {}
+                        songs.isNotEmpty() -> ModernBannerCarousel(
+                            featuredMusic = songs,
+                            onMusicClick = { musicId -> onMusicClick(musicId) }
                         )
                         featuredBanner != null -> FeaturedHero(
                             banner = featuredBanner,
                             onPlayClick = { featuredBanner?.id?.let { onMusicClick(it) } }
-                        )
-                    }
-                }
-
-                // ── Moods & Genres ──────────────────────────────────────
-                if (categories.isNotEmpty()) {
-                    item {
-                        CategoryRow(
-                            categories = categories,
-                            onCategoryClick = { /* Will be implemented in Explore */ }
                         )
                     }
                 }
@@ -305,10 +307,8 @@ fun HomeScreen(
     }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// BEAUTIFUL HOME HEADER  — no username, time-based greeting + notification badge
-// ═════════════════════════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RivoHomeHeader(
     profileImageUrl: String?,
@@ -317,10 +317,13 @@ fun RivoHomeHeader(
     onNotificationClick: () -> Unit,
     onSearchClick: () -> Unit
 ) {
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val useSunPngIcon = currentHour in 5..16
+    val useNightPngIcon = currentHour !in 5..20
+
     // Time-based greeting computed once per composition
     val (greetingLine1, greetingLine2, greetingEmoji) = remember {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        when (hour) {
+        when (currentHour) {
             in 5..11  -> Triple("Good Morning", "Ready to discover new music?", "☀️")
             in 12..16 -> Triple("Good Afternoon", "What's on your playlist today?", "🎵")
             in 17..20 -> Triple("Good Evening", "Unwind with your favourite tunes", "🌆")
@@ -330,96 +333,341 @@ fun RivoHomeHeader(
 
     val displayGreeting = if (!userName.isNullOrBlank()) "$greetingLine1, $userName" else greetingLine1
 
-    // Animate greeting in from below
+    // ── Animations ───────────────────────────────────────────────────────────
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
-    Row(
+    val infiniteTransition = rememberInfiniteTransition(label = "header_anim")
+
+    // Animated gradient color shift for the glow border
+    val gradientPhase by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing)),
+        label = "gradient_phase"
+    )
+
+    // Subtle pulsing glow behind the greeting card
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.15f, targetValue = 0.35f,
+        animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "glow_alpha"
+    )
+
+    // Emoji bounce animation
+    val emojiBounce by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "emoji_bounce"
+    )
+    val emojiScale = floatLerp(1f, 1.2f, emojiBounce)
+    val emojiRotation = floatLerp(-5f, 5f, emojiBounce)
+
+    // Shimmer sweep across marquee text
+    val shimmerX by infiniteTransition.animateFloat(
+        initialValue = -300f, targetValue = 1200f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = LinearEasing)),
+        label = "shimmer_sweep"
+    )
+
+    // Animated gradient colors for the marquee text
+    val colorPhase by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4000, easing = LinearEasing)),
+        label = "text_color_phase"
+    )
+    val animatedTextColor = lerp(
+        White,
+        RivoCyan,
+        (kotlin.math.sin(colorPhase * 2 * Math.PI).toFloat() + 1f) / 2f * 0.3f
+    )
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 52.dp, start = 24.dp, end = 20.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 52.dp, start = 16.dp, end = 16.dp, bottom = 4.dp)
     ) {
-        // Greeting text
-        Column(modifier = Modifier.weight(1f)) {
+        // ── Top Row: Emoji + Action Buttons ──────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Animated emoji with bounce + rotation
             AnimatedVisibility(
                 visible = visible,
-                enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 2 }
+                enter = fadeIn(tween(600)) + scaleIn(tween(600, easing = EaseOutBack))
             ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = greetingEmoji,
-                            fontSize = 20.sp
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = displayGreeting,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = White,
-                                letterSpacing = (-0.8).sp
-                            )
+                when {
+                    useSunPngIcon -> {
+                        Image(
+                            painter = painterResource(id = R.drawable.sunset),
+                            contentDescription = "Sun icon",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .graphicsLayer {
+                                    scaleX = emojiScale
+                                    scaleY = emojiScale
+                                    rotationZ = emojiRotation
+                                }
                         )
                     }
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = greetingLine2,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = LightGray,
-                            letterSpacing = 0.2.sp
+                    useNightPngIcon -> {
+                        Image(
+                            painter = painterResource(id = R.drawable.nature),
+                            contentDescription = "Night icon",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .graphicsLayer {
+                                    scaleX = emojiScale
+                                    scaleY = emojiScale
+                                    rotationZ = emojiRotation
+                                }
                         )
+                    }
+                    else -> {
+                        Text(
+                            text = greetingEmoji,
+                            fontSize = 28.sp,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = emojiScale
+                                    scaleY = emojiScale
+                                    rotationZ = emojiRotation
+                                }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Action buttons row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RivoHeaderButton(icon = Icons.Default.Search, onClick = onSearchClick)
+                Box {
+                    RivoHeaderButton(
+                        icon = Icons.Default.Notifications,
+                        onClick = onNotificationClick,
+                        hasGlow = unreadCount > 0
                     )
+                    if (unreadCount > 0) {
+                        NotificationBadge(
+                            count = unreadCount,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
+                }
+                if (!profileImageUrl.isNullOrEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .drawBehind {
+                                drawCircle(
+                                    brush = Brush.sweepGradient(listOf(RivoPurple, RivoPink, RivoCyan, RivoPurple)),
+                                    radius = size.minDimension / 2f
+                                )
+                            }
+                    ) {
+                        AsyncImage(
+                            model = profileImageUrl,
+                            contentDescription = "Profile",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .align(Alignment.Center)
+                                .clip(CircleShape)
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // Action buttons row
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // ── Greeting Marquee Card — Glassmorphism + Animated Gradient ─────
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(700, delayMillis = 200)) +
+                    slideInVertically(tween(600, delayMillis = 200, easing = EaseOutBack)) { it }
         ) {
-            // Search button
-            RivoHeaderButton(icon = Icons.Default.Search, onClick = onSearchClick)
-
-            // Notification button with animated badge
-            Box {
-                RivoHeaderButton(
-                    icon = Icons.Default.Notifications,
-                    onClick = onNotificationClick,
-                    hasGlow = unreadCount > 0
-                )
-                if (unreadCount > 0) {
-                    NotificationBadge(
-                        count = unreadCount,
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    )
-                }
-            }
-
-            // Profile avatar (if available)
-            if (!profileImageUrl.isNullOrEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBehind {
+                        // Animated glowing halo behind the card
+                        val glowColors = listOf(
+                            RivoPurple.copy(alpha = glowAlpha * 0.8f),
+                            RivoPink.copy(alpha = glowAlpha * 0.5f),
+                            Color.Transparent
+                        )
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(glowColors),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f),
+                            size = size.copy(
+                                width = size.width + 8f,
+                                height = size.height + 8f
+                            ),
+                            topLeft = Offset(-4f, -4f)
+                        )
+                    }
+            ) {
+                // Glassmorphism card
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    White.copy(alpha = 0.06f),
+                                    White.copy(alpha = 0.02f),
+                                    RivoPurple.copy(alpha = 0.04f)
+                                ),
+                                start = Offset(0f, 0f),
+                                end = Offset(1000f, 500f)
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    RivoPurple.copy(alpha = 0.4f * (0.5f + gradientPhase * 0.5f)),
+                                    RivoPink.copy(alpha = 0.3f * (1f - gradientPhase * 0.5f)),
+                                    RivoCyan.copy(alpha = 0.2f * (0.5f + gradientPhase * 0.5f)),
+                                    White.copy(alpha = 0.1f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
                         .drawBehind {
-                            drawCircle(
-                                brush = Brush.sweepGradient(listOf(RivoPurple, RivoPink, RivoCyan, RivoPurple)),
-                                radius = size.minDimension / 2f
+                            // Shimmer sweep overlay
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        White.copy(alpha = 0.06f),
+                                        Color.Transparent
+                                    ),
+                                    start = Offset(shimmerX, 0f),
+                                    end = Offset(shimmerX + 200f, size.height)
+                                )
                             )
                         }
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
-                    AsyncImage(
-                        model = profileImageUrl,
-                        contentDescription = "Profile",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .align(Alignment.Center)
-                            .clip(CircleShape)
-                    )
+                    Column {
+                        // Greeting text — marquee with only greeting + username
+                        Text(
+                            text = displayGreeting,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    animationMode = MarqueeAnimationMode.Immediately,
+                                    velocity = 45.dp
+                                ),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.3).sp,
+                                color = animatedTextColor
+                            )
+                        )
+
+                        Spacer(Modifier.height(6.dp))
+
+                        // Subtitle with gradient text effect
+                        Text(
+                            text = greetingLine2,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = LightGray.copy(alpha = 0.8f),
+                                letterSpacing = 0.4.sp
+                            )
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Animated now-playing style indicator bar
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Mini sound-wave bars
+                            repeat(4) { i ->
+                                val barHeight by infiniteTransition.animateFloat(
+                                    initialValue = 4f,
+                                    targetValue = 14f,
+                                    animationSpec = infiniteRepeatable(
+                                        tween(
+                                            durationMillis = 400 + i * 120,
+                                            easing = FastOutSlowInEasing
+                                        ),
+                                        RepeatMode.Reverse
+                                    ),
+                                    label = "bar_$i"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .width(3.dp)
+                                        .height(barHeight.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(RivoPurple, RivoPink)
+                                            )
+                                        )
+                                )
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            Text(
+                                text = "Streaming Now",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = RivoPurple.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 1.sp,
+                                    fontSize = 10.sp
+                                )
+                            )
+
+                            Spacer(Modifier.weight(1f))
+
+                            // Live dot pulse
+                            val dotScale by infiniteTransition.animateFloat(
+                                initialValue = 0.6f, targetValue = 1f,
+                                animationSpec = infiniteRepeatable(
+                                    tween(800, easing = FastOutSlowInEasing),
+                                    RepeatMode.Reverse
+                                ),
+                                label = "live_dot"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .scale(dotScale)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.radialGradient(
+                                            listOf(RivoCyan, RivoCyan.copy(alpha = 0.4f))
+                                        )
+                                    )
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "LIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = RivoCyan.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 1.5.sp
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -61,7 +61,10 @@ router.get("/:id/followers", protect, getFollowers)
 router.get("/:id/following", protect, getFollowing)
 
 // Verification (artist submits, admin reviews)
-router.post("/:id/verification", protect, submitVerificationRequest)
+router.post("/:id/verification", protect, upload.fields([
+    { name: 'idDocument', maxCount: 1 },
+    { name: 'proofOfArtistry', maxCount: 1 }
+]), submitVerificationRequest)
 router.get("/:id/verification", protect, getVerificationStatus)
 router.put("/:id/verification", protect, admin, updateVerificationStatus)
 

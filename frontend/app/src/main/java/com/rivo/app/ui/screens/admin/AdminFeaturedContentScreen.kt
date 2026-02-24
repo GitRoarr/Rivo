@@ -42,6 +42,7 @@ import com.rivo.app.data.model.UserType
 import androidx.compose.material.icons.outlined.*
 import com.rivo.app.ui.navigation.RivoScreens
 import com.rivo.app.ui.theme.*
+import com.rivo.app.ui.screens.home.formatCount
 import com.rivo.app.ui.viewmodel.AdminViewModel
 import com.rivo.app.ui.viewmodel.MusicViewModel
 import com.rivo.app.utils.ImagePickerHelper
@@ -49,7 +50,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 enum class FeaturedTab {
-    BANNERS, SONGS, ARTISTS
+    SONGS, ARTISTS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +70,7 @@ fun AdminFeaturedContentScreen(
     val featuredContent by adminViewModel.featuredContent.collectAsState()
     val operationStatus by adminViewModel.operationStatus.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(FeaturedTab.BANNERS) }
+    var selectedTab by remember { mutableStateOf(FeaturedTab.SONGS) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf<FeaturedContent?>(null) }
 
@@ -90,7 +91,7 @@ fun AdminFeaturedContentScreen(
                 .fillMaxWidth()
                 .height(300.dp)
                 .background(
-                    Brush.verticalGradient(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
                         listOf(RivoPurple.copy(alpha = 0.12f), DarkBackground)
                     )
                 )
@@ -139,29 +140,6 @@ fun AdminFeaturedContentScreen(
                         }
                     }
                 )
-            },
-            floatingActionButton = {
-                if (selectedTab == FeaturedTab.BANNERS) {
-                    FloatingActionButton(
-                        onClick = { showAddDialog = true },
-                        containerColor = RivoPink,
-                        shape = CircleShape,
-                        elevation = FloatingActionButtonDefaults.elevation(12.dp)
-                    ) {
-                        Icon(Icons.Default.Add, "Add Banner", tint = White)
-                    }
-                }
-            },
-            snackbarHost = {
-                SnackbarHost(hostState = snackbarHostState) { data ->
-                    Snackbar(
-                        modifier = Modifier.padding(16.dp).clip(RoundedCornerShape(12.dp)),
-                        containerColor = Color(0xFF1E1E1E),
-                        contentColor = White,
-                        actionColor = RivoPink,
-                        snackbarData = data
-                    )
-                }
             },
             containerColor = Color.Transparent
         ) { paddingValues ->
@@ -217,19 +195,6 @@ fun AdminFeaturedContentScreen(
                 label = "featured_tab_anim"
             ) { tab ->
                 when (tab) {
-                    FeaturedTab.BANNERS -> {
-                        val banners = featuredContent.filter { it.type == FeaturedType.BANNER }
-                        FeaturedBannersTab(
-                            banners = banners,
-                            onDeleteClick = { showDeleteConfirmDialog = it },
-                            onBannerClick = { banner ->
-                                banner.contentId?.let { musicId ->
-                                    val music = allMusic.find { it.id == musicId }
-                                    music?.let { playMusicAndNavigate(music, musicViewModel, navController) }
-                                }
-                            }
-                        )
-                    }
                     FeaturedTab.SONGS -> {
                         val featuredSongs = featuredContent.filter { it.type == FeaturedType.SONG }
                         val isLoading by adminViewModel.isLoading.collectAsState()
@@ -260,55 +225,6 @@ fun AdminFeaturedContentScreen(
             }
         }
     }
-
-        // Add dialog — only for Banners; Songs/Artists use inline pin
-        if (showAddDialog && selectedTab == FeaturedTab.BANNERS) {
-            AddBannerDialog(
-                        onDismiss = { showAddDialog = false },
-                        onAddBanner = { title, description, imageUri ->
-                            currentAdmin?.id?.let { adminId ->
-                                // Use ImagePickerHelper to save the image
-                                if (imageUri != null) {
-                                    // Save image to internal storage asynchronously
-                                    val fileName = "banner_${System.currentTimeMillis()}.jpg"
-                                    ImagePickerHelper.saveImageToInternalStorageAsync(
-                                        context,
-                                        imageUri,
-                                        fileName
-                                    ) { localPath ->
-                                        if (localPath != null) {
-                                            // Create featured banner with local path
-                                            scope.launch {
-                                                adminViewModel.createFeaturedBanner(
-                                                    title = title,
-                                                    description = description,
-                                                    imageUrl = localPath,
-                                                    adminId = adminId
-                                                )
-                                            }
-                                        } else {
-                                            // Show error if image saving failed
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("Failed to save banner image")
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // Create banner without image
-                                    scope.launch {
-                                        adminViewModel.createFeaturedBanner(
-                                            title = title,
-                                            description = description,
-                                            imageUrl = "",
-                                            adminId = adminId
-                                        )
-                                    }
-                                }
-                            }
-                            showAddDialog = false
-                        }
-                    )
-        }
 
         showDeleteConfirmDialog?.let { content ->
             AlertDialog(

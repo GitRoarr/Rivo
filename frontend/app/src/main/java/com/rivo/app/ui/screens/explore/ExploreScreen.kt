@@ -51,6 +51,9 @@ fun ExploreScreen(
     val songs by exploreViewModel.songs.collectAsState()
     val categories by exploreViewModel.categories.collectAsState()
     val isLoading by exploreViewModel.isLoading.collectAsState()
+    val selectedCategory by exploreViewModel.selectedCategory.collectAsState()
+    val categoryMusic by exploreViewModel.categoryMusic.collectAsState()
+    val categoryLoading by exploreViewModel.categoryLoading.collectAsState()
 
     Box(
         modifier = Modifier
@@ -60,55 +63,70 @@ fun ExploreScreen(
         // Dynamic Glowing Background
         MeshBackground()
 
-        if (isLoading && songs.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = RivoPurple)
-            }
+        // If a category is selected, show category detail view
+        if (selectedCategory != null) {
+            CategoryDetailView(
+                category = selectedCategory!!,
+                music = categoryMusic,
+                isLoading = categoryLoading,
+                onBackClick = { exploreViewModel.clearSelectedCategory() },
+                onMusicClick = onMusicClick
+            )
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Header & Creative Search
-                item(span = { GridItemSpan(2) }) {
-                    ExploreTopSection(onSearchClick)
+            // Main explore view
+            if (isLoading && songs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = RivoPurple)
                 }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 100.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Header & Creative Search
+                    item(span = { GridItemSpan(2) }) {
+                        ExploreTopSection(onSearchClick)
+                    }
 
-                // Trending Artists (Horizontal)
-                item(span = { GridItemSpan(2) }) {
-                    Column {
-                        SectionLabel("Featured Artists")
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(artists) { artist ->
-                                ArtistCircleItem(artist, onClick = { onArtistClick(artist) })
+                    // Trending Artists (Horizontal)
+                    item(span = { GridItemSpan(2) }) {
+                        Column {
+                            SectionLabel("Featured Artists")
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(artists) { artist ->
+                                    ArtistCircleItem(artist, onClick = { onArtistClick(artist) })
+                                }
                             }
                         }
                     }
-                }
 
-                // Moods & Categories Heading
-                item(span = { GridItemSpan(2) }) {
-                    SectionLabel("Browse Categories")
-                }
+                    // Moods & Categories Heading
+                    item(span = { GridItemSpan(2) }) {
+                        SectionLabel("Browse Categories")
+                    }
 
-                // Categories Grid
-                items(categories) { category ->
-                    CategoryCard(category)
-                }
+                    // Categories Grid - now clickable
+                    items(categories) { category ->
+                        CategoryCard(
+                            category = category,
+                            onClick = { exploreViewModel.selectCategory(category) }
+                        )
+                    }
 
-                // Recommendation Section
-                item(span = { GridItemSpan(2) }) {
-                    SectionLabel("Discover Daily")
-                }
+                    // Recommendation Section
+                    item(span = { GridItemSpan(2) }) {
+                        SectionLabel("Discover Daily")
+                    }
 
-                items(songs.take(10)) { music ->
-                    ModernMusicGridItem(music, onClick = { onMusicClick(music) })
+                    items(songs.take(10)) { music ->
+                        ModernMusicGridItem(music, onClick = { onMusicClick(music) })
+                    }
                 }
             }
         }
@@ -222,7 +240,7 @@ fun ArtistCircleItem(artist: User, onClick: () -> Unit) {
 }
 
 @Composable
-fun CategoryCard(category: MusicCategory) {
+fun CategoryCard(category: MusicCategory, onClick: () -> Unit) {
     val color = remember(category.color) { Color(android.graphics.Color.parseColor(category.color)) }
     
     Box(
@@ -232,6 +250,7 @@ fun CategoryCard(category: MusicCategory) {
             .height(100.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(Brush.linearGradient(listOf(color.copy(alpha = 0.7f), color)))
+            .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
         Text(
@@ -291,5 +310,123 @@ fun ModernMusicGridItem(music: Music, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelSmall.copy(color = LightGray),
             maxLines = 1
         )
+    }
+}
+
+@Composable
+fun CategoryDetailView(
+    category: MusicCategory,
+    music: List<Music>,
+    isLoading: Boolean,
+    onBackClick: () -> Unit,
+    onMusicClick: (Music) -> Unit
+) {
+    val color = remember(category.color) { Color(android.graphics.Color.parseColor(category.color)) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+    ) {
+        // Header with back button and category info
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(color.copy(alpha = 0.8f), color.copy(alpha = 0.3f), DarkBackground)
+                    )
+                )
+        ) {
+            // Back button
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .padding(top = 40.dp, start = 16.dp)
+                    .align(Alignment.TopStart)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = White
+                )
+            }
+
+            // Category title and icon
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 24.dp, bottom = 24.dp)
+            ) {
+                Icon(
+                    imageVector = when (category.icon) {
+                        "mic" -> Icons.Default.Mic
+                        "album" -> Icons.Default.Album
+                        "spa" -> Icons.Default.Spa
+                        else -> Icons.Default.MusicNote
+                    },
+                    contentDescription = null,
+                    tint = White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = category.title,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = White,
+                        fontWeight = FontWeight.Black
+                    )
+                )
+                Text(
+                    text = "${music.size} songs",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = White.copy(alpha = 0.7f))
+                )
+            }
+        }
+
+        // Loading or content
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = color)
+            }
+        } else if (music.isEmpty()) {
+            // Empty state
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Outlined.MusicOff,
+                        contentDescription = null,
+                        tint = LightGray,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No songs in this category yet",
+                        style = MaterialTheme.typography.bodyLarge.copy(color = LightGray),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            // Music grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(music) { song ->
+                    ModernMusicGridItem(song, onClick = { onMusicClick(song) })
+                }
+            }
+        }
     }
 }

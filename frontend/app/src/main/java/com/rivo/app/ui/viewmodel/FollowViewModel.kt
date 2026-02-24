@@ -43,7 +43,6 @@ class FollowViewModel @Inject constructor(
                 val session = sessionManager.getCurrentUser()
                 if (session.isLoggedIn && session.userId.isNotBlank()) {
                     Log.d("FollowViewModel", "Initializing and syncing follows for ${session.userId}")
-                    followRepository.syncFollows(session.userId)
                 }
             } catch (e: Exception) {
                 Log.e("FollowViewModel", "Error in init sync: ${e.message}")
@@ -96,7 +95,7 @@ class FollowViewModel @Inject constructor(
                 if (currentUserId.isNotBlank()) {
                     if (_isFollowing.value) {
                         Log.d("FollowViewModel", "Unfollowing artist: $artistId")
-                        followRepository.unfollowArtist(currentUserId, artistId)
+                        followRepository.unfollowArtist(artistId)
                         _isFollowing.value = false
                         _followersCount.value = (_followersCount.value - 1).coerceAtLeast(0)
 
@@ -105,7 +104,7 @@ class FollowViewModel @Inject constructor(
                         followerCountCache[artistId]?.value = (followerCountCache[artistId]?.value ?: 1) - 1
                     } else {
                         Log.d("FollowViewModel", "Following artist: $artistId")
-                        followRepository.followArtist(currentUserId, artistId)
+                        followRepository.followArtist(artistId)
                         _isFollowing.value = true
                         _followersCount.value += 1
 
@@ -171,7 +170,7 @@ class FollowViewModel @Inject constructor(
         try {
             val currentUser = sessionManager.getCurrentUser()
             if (currentUser != null) {
-                followRepository.followArtist(currentUser.email, artistId)
+                followRepository.followArtist(artistId)
 
                 // Update cache
                 getOrCreateFollowStatusFlow(artistId).value = true
@@ -194,7 +193,7 @@ class FollowViewModel @Inject constructor(
         try {
             val currentUser = sessionManager.getCurrentUser()
             if (currentUser != null) {
-                followRepository.unfollowArtist(currentUser.email, artistId)
+                followRepository.unfollowArtist(artistId)
 
                 // Update cache
                 getOrCreateFollowStatusFlow(artistId).value = false

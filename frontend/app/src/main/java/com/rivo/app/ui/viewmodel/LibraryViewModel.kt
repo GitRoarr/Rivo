@@ -6,8 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.Playlist
-import com.rivo.app.data.local.PlaylistWithMusic
-import com.rivo.app.data.local.WatchlistWithMusic
+import com.rivo.app.data.model.PlaylistWithMusic
+import com.rivo.app.data.model.WatchlistWithMusic
 import com.rivo.app.data.model.Watchlist
 import com.rivo.app.data.repository.PlaylistRepository
 import com.rivo.app.data.repository.WatchlistRepository
@@ -53,8 +53,7 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // First sync playlists from MongoDB Atlas into the local cache
-                playlistRepository.syncUserPlaylistsFromRemote(userId)
+                playlistRepository.syncUserPlaylistsFromRemote()
 
                 playlistRepository.getPlaylistsByUser(userId).collectLatest { playlists ->
                     _userPlaylists.value = playlists
@@ -95,8 +94,7 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // First sync watchlists from MongoDB Atlas into the local cache
-                watchlistRepository.syncUserWatchlistsFromRemote(userId)
+                watchlistRepository.syncUserWatchlistsFromRemote()
 
                 watchlistRepository.getWatchlistsByUser(userId).collectLatest { watchlists ->
                     _userWatchlists.value = watchlists

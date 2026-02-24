@@ -38,11 +38,12 @@ class ExploreViewModel @Inject constructor(
     // For the horizontal artist list
     private val _artists = MutableStateFlow<List<User>>(emptyList())
     val artists: StateFlow<List<User>> = _artists
-    
-    // Alias for HomeScreen compatibility
-    val featuredArtists: StateFlow<List<User>> = _artists
 
-    // For the song grid / generic songs
+    // Featured artists from backend
+    private val _featuredArtists = MutableStateFlow<List<User>>(emptyList())
+    val featuredArtists: StateFlow<List<User>> = _featuredArtists
+
+    // Songs for the grid
     private val _songs = MutableStateFlow<List<Music>>(emptyList())
     val songs: StateFlow<List<Music>> = _songs
 
@@ -55,11 +56,40 @@ class ExploreViewModel @Inject constructor(
     private val _categories = MutableStateFlow<List<MusicCategory>>(emptyList())
     val categories: StateFlow<List<MusicCategory>> = _categories
 
+    // Selected category state
+    private val _selectedCategory = MutableStateFlow<MusicCategory?>(null)
+    val selectedCategory: StateFlow<MusicCategory?> = _selectedCategory
+
+    private val _categoryMusic = MutableStateFlow<List<Music>>(emptyList())
+    val categoryMusic: StateFlow<List<Music>> = _categoryMusic
+
+    private val _categoryLoading = MutableStateFlow(false)
+    val categoryLoading: StateFlow<Boolean> = _categoryLoading
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     init {
         refresh()
+    }
+
+    fun selectCategory(category: MusicCategory) {
+        _selectedCategory.value = category
+        _categoryLoading.value = true
+        viewModelScope.launch {
+            val result = musicRepository.getMusicByGenre(category.title)
+            if (result.isSuccess) {
+                _categoryMusic.value = result.getOrNull() ?: emptyList()
+            } else {
+                _categoryMusic.value = emptyList()
+            }
+            _categoryLoading.value = false
+        }
+    }
+
+    fun clearSelectedCategory() {
+        _selectedCategory.value = null
+        _categoryMusic.value = emptyList()
     }
 
     fun refresh() {

@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.rivo.app.data.local.PlaylistWithMusic
+import com.rivo.app.data.model.PlaylistWithMusic
 import com.rivo.app.data.model.Music
 import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.LibraryViewModel

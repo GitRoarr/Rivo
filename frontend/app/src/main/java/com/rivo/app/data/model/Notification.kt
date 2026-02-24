@@ -1,7 +1,5 @@
 package com.rivo.app.data.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import java.util.Date
 
 enum class NotificationType {
@@ -13,9 +11,7 @@ enum class NotificationType {
     COMMENT
 }
 
-@Entity(tableName = "notifications")
 data class Notification(
-    @PrimaryKey
     val id: String = "",
     val userId: String = "",
     val title: String = "",

@@ -193,12 +193,15 @@ class AdminViewModel @Inject constructor(
 
     fun approveMusic(musicId: String) {
         viewModelScope.launch {
+            Log.d("AdminViewModel", "Approving music: $musicId")
             val result = musicRepository.approveMusic(musicId)
             if (result.isSuccess) {
+                Log.d("AdminViewModel", "Music approved successfully: $musicId")
                 _operationStatus.value = "Music approved"
                 musicRepository.refreshPendingMusic()
                 musicRepository.refreshAllMusicAdmin()
             } else {
+                Log.e("AdminViewModel", "Failed to approve music: ${result.exceptionOrNull()?.message}")
                 _operationStatus.value = "Failed to approve music"
             }
         }
@@ -206,11 +209,15 @@ class AdminViewModel @Inject constructor(
 
     fun rejectMusic(musicId: String) {
         viewModelScope.launch {
+            Log.d("AdminViewModel", "Rejecting music: $musicId")
             val result = musicRepository.rejectMusic(musicId)
             if (result.isSuccess) {
+                Log.d("AdminViewModel", "Music rejected successfully: $musicId")
                 _operationStatus.value = "Music rejected"
                 musicRepository.refreshPendingMusic()
+                musicRepository.refreshAllMusicAdmin() // Add this refresh here too for consistency
             } else {
+                Log.e("AdminViewModel", "Failed to reject music: ${result.exceptionOrNull()?.message}")
                 _operationStatus.value = "Failed to reject music"
             }
         }

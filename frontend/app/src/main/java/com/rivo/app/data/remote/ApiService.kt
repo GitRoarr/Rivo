@@ -62,8 +62,20 @@ interface ApiService {
     suspend fun getUserFollowing(@Path("id") userId: String): Response<List<User>>
 
     // Verification
+    @Multipart
     @POST("api/users/{id}/verification")
-    suspend fun submitVerificationRequest(@Path("id") userId: String): Response<MessageResponse>
+    suspend fun submitVerificationRequest(
+        @Path("id") userId: String,
+        @Part idDocument: okhttp3.MultipartBody.Part,
+        @Part proofOfArtistry: okhttp3.MultipartBody.Part,
+        @Part("artistName") artistName: okhttp3.RequestBody,
+        @Part("email") email: okhttp3.RequestBody,
+        @Part("phoneNumber") phoneNumber: okhttp3.RequestBody,
+        @Part("location") location: okhttp3.RequestBody,
+        @Part("primaryGenre") primaryGenre: okhttp3.RequestBody,
+        @Part("artistBio") artistBio: okhttp3.RequestBody,
+        @Part("socialLinks") socialLinks: okhttp3.RequestBody
+    ): Response<MessageResponse>
 
     @GET("api/users/{id}/verification")
     suspend fun getVerificationStatus(@Path("id") userId: String): Response<VerificationStatusResponse>
@@ -84,6 +96,9 @@ interface ApiService {
     // ─── Music endpoints ─────────────────────────────────────────────────────
     @GET("api/music")
     suspend fun getAllMusic(): Response<List<Music>>
+
+    @GET("api/music")
+    suspend fun getMusicByGenre(@Query("genre") genre: String): Response<List<Music>>
 
     @GET("api/music/admin/all")
     suspend fun getAllMusicAdmin(): Response<List<Music>>
@@ -312,7 +327,8 @@ data class VerificationStatusResponse(
 )
 
 data class VerificationUpdateRequest(
-    val status: String  // "VERIFIED" or "REJECTED"
+    val status: String,  // "VERIFIED" or "REJECTED"
+    val reason: String? = null
 )
 
 data class PlaylistRequest(

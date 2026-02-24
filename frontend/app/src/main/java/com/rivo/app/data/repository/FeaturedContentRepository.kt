@@ -1,7 +1,6 @@
 package com.rivo.app.data.repository
 
 import android.util.Log
-import com.rivo.app.data.local.FeaturedContentDao
 import com.rivo.app.data.model.FeaturedContent
 import com.rivo.app.data.model.FeaturedType
 import com.rivo.app.data.remote.ApiService
@@ -9,39 +8,59 @@ import com.rivo.app.data.remote.FeaturedContentRequest
 import com.rivo.app.data.remote.FeaturedContentResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class FeaturedContentRepository @Inject constructor(
-    private val featuredContentDao: FeaturedContentDao,
     private val apiService: ApiService,
     private val sessionManager: SessionManager
 ) {
+    private val _featuredContent = MutableStateFlow<List<FeaturedContent>>(emptyList())
+    val featuredContent: StateFlow<List<FeaturedContent>> = _featuredContent.asStateFlow()
 
-    fun getAllFeaturedContent(): Flow<List<FeaturedContent>> =
-        featuredContentDao.getAllFeaturedContent()
-
-    fun getAllActiveFeaturedContent(): Flow<List<FeaturedContent>> =
-        featuredContentDao.getAllActiveFeaturedContent()
-
-    fun getFeaturedContentByType(type: FeaturedType): Flow<List<FeaturedContent>> =
-        featuredContentDao.getFeaturedContentByType(type)
-
-    suspend fun getLatestFeaturedBanner(type: FeaturedType): FeaturedContent? = withContext(Dispatchers.IO) {
-        featuredContentDao.getLatestFeaturedContentByType(type)
+    fun getAllFeaturedContent(): Flow<List<FeaturedContent>> {
+        refreshFeaturedContentBackground()
+        return featuredContent
     }
 
-    suspend fun refreshFeaturedContent(): Result<Unit> = withContext(Dispatchers.IO) {
+    private fun refreshFeaturedContentBackground() {
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            refreshFeaturedContent()
+        }
+    }
+
+    fun getAllActiveFeaturedContent(): Flow<List<FeaturedContent>> = featuredContent
+
+    fun getFeaturedContentByType(type: FeaturedType): Flow<List<FeaturedContent>> {
+        return featuredContent.map { list -> list.filter { it.type == type } }
+    }
+
+    suspend fun getLatestFeaturedBanner(type: FeaturedType): FeaturedContent? = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getFeaturedContent()
+            if (response.isSuccessful) {
+                response.body()?.filter { it.type == type.name }?.map { it.toModel() }?.maxByOrNull { it.position }
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun refreshFeaturedContent(): Result<List<FeaturedContent>> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getFeaturedContent()
             if (response.isSuccessful && response.body() != null) {
                 val featuredList = response.body()!!.map { it.toModel() }
-                featuredContentDao.insertAllFeaturedContent(featuredList)
-                return@withContext Result.success(Unit)
+                _featuredContent.value = featuredList
+                return@withContext Result.success(featuredList)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh featured content"))
             }
@@ -72,7 +91,7 @@ class FeaturedContentRepository @Inject constructor(
             val response = apiService.addFeaturedContent(request)
             if (response.isSuccessful && response.body() != null) {
                 val featured = response.body()!!.toModel()
-                featuredContentDao.insertFeaturedContent(featured)
+                refreshFeaturedContent()
                 return@withContext Result.success(featured)
             } else {
                 return@withContext Result.failure(Exception("Failed to create featured content"))
@@ -86,7 +105,7 @@ class FeaturedContentRepository @Inject constructor(
         try {
             val response = apiService.deleteFeaturedContent(id)
             if (response.isSuccessful) {
-                featuredContentDao.deleteFeaturedContentById(id)
+                refreshFeaturedContent()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to remove featured content"))
@@ -104,17 +123,9 @@ class FeaturedContentRepository @Inject constructor(
             title = this.title,
             description = this.description,
             imageUrl = this.imageUrl,
-            createdBy = "ADMIN", // Default for now
+            createdBy = "ADMIN",
             featuredBy = "ADMIN",
             position = this.order
         )
-    }
-
-    suspend fun insertFeaturedContent(featuredContent: FeaturedContent) {
-        featuredContentDao.insertFeaturedContent(featuredContent)
-    }
-
-    suspend fun removeFeaturedContentLocally(id: String) {
-        featuredContentDao.deleteFeaturedContentById(id)
     }
 }

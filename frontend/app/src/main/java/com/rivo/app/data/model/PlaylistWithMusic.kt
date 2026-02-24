@@ -1,31 +1,10 @@
 package com.rivo.app.data.model
 
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.Index
-
-@Entity(
-    tableName = "playlist_music_cross_ref",
-    primaryKeys = ["playlistId", "musicId"],
-    indices = [
-        Index("playlistId"),
-        Index("musicId")
-    ],
-    foreignKeys = [
-        ForeignKey(
-            entity = Playlist::class,
-            parentColumns = ["id"],
-            childColumns = ["playlistId"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = Music::class,
-            parentColumns = ["id"],
-            childColumns = ["musicId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ]
+data class PlaylistWithMusic(
+    val playlist: Playlist,
+    val musicList: List<Music> = emptyList()
 )
+
 data class PlaylistMusicCrossRef(
     val playlistId: Long,
     val musicId: String

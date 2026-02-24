@@ -1,7 +1,6 @@
 package com.rivo.app.data.repository
 
 import android.util.Log
-import com.rivo.app.data.local.UserDao
 import com.rivo.app.data.model.User
 import com.rivo.app.data.model.UserType
 import com.rivo.app.data.model.VerificationStatus
@@ -12,8 +11,11 @@ import com.rivo.app.data.remote.UserUpdateRequest
 import com.rivo.app.data.remote.VerificationUpdateRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.GlobalScope
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -25,11 +27,12 @@ import javax.inject.Singleton
 
 @Singleton
 class UserRepository @Inject constructor(
-    private val userDao: UserDao,
     private val sessionManager: SessionManager,
     private val apiService: ApiService,
     private val connectivityRepository: ConnectivityRepository
 ) {
+    private val _allUsers = kotlinx.coroutines.flow.MutableStateFlow<List<User>>(emptyList())
+    val allUsers: kotlinx.coroutines.flow.StateFlow<List<User>> = _allUsers.asStateFlow()
 
     suspend fun registerUser(
         fullName: String,
@@ -39,222 +42,97 @@ class UserRepository @Inject constructor(
         userType: UserType
     ): Result<User> = withContext(Dispatchers.IO) {
         try {
-            if (isUserExists(email)) {
-                Log.d("UserRepository", "User with email $email already exists")
-                return@withContext Result.failure(Exception("User with this email already exists"))
-            }
+            val response = apiService.registerUser(
+                UserRegistrationRequest(
+                    id = generateUserId(),
+                    email = email,
+                    password = password,
+                    name = name,
+                    fullName = fullName,
+                    userType = userType.name
+                )
+            )
 
-            val hashedPassword = hashPassword(password)
-            val userId = generateUserId()
-
-            val isConnected = connectivityRepository.isNetworkAvailable.value
-            Log.d("UserRepository", "Network available for registration: $isConnected")
-
-            if (isConnected) {
-                try {
-                    Log.d("UserRepository", "Attempting API registration for $email")
-                    val response = apiService.registerUser(
-                        UserRegistrationRequest(
-                            id = userId,
-                            email = email,
-                            password = password,
-                            name = name,
-                            fullName = fullName,
-                            userType = userType.name
-                        )
-                    )
-
-                    if (response.isSuccessful) {
-                        val userResponse = response.body()
-                        if (userResponse != null) {
-                            Log.d("UserRepository", "API registration successful for $email")
-
-                            val user = User(
-                                id = userResponse.id,
-                                email = email,
-                                password = hashedPassword,
-                                name = name,
-                                fullName = fullName,
-                                userType = userType,
-                                verificationStatus = VerificationStatus.UNVERIFIED,
-                                socialLinks = emptyMap()
-                            )
-                            sessionManager.saveToken(userResponse.token)
-                            sessionManager.createSession(user)
-                            userDao.insertUser(user)
-                            return@withContext Result.success(user)
-                        } else {
-                            Log.e("UserRepository", "API registration response body is null")
-                            return@withContext Result.failure(Exception("Failed to parse user response"))
-                        }
-                    } else {
-                        val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                        Log.e("UserRepository", "API registration failed: $errorBody")
-
-                        return@withContext fallbackToLocalRegistration(userId, email, hashedPassword, name, fullName, userType)
-                    }
-                } catch (e: Exception) {
-                    Log.e("UserRepository", "API registration exception: ${e.message}", e)
-                    return@withContext fallbackToLocalRegistration(userId, email, hashedPassword, name, fullName, userType)
-                }
+            if (response.isSuccessful && response.body() != null) {
+                val userResponse = response.body()!!
+                val user = User(
+                    id = userResponse.id,
+                    email = email,
+                    password = hashPassword(password),
+                    name = name,
+                    fullName = fullName,
+                    userType = userType,
+                    verificationStatus = VerificationStatus.UNVERIFIED,
+                    socialLinks = emptyMap()
+                )
+                sessionManager.saveToken(userResponse.token)
+                sessionManager.createSession(user)
+                return@withContext Result.success(user)
             } else {
-                Log.d("UserRepository", "No network, using local registration for $email")
-                return@withContext fallbackToLocalRegistration(userId, email, hashedPassword, name, fullName, userType)
+                val errorBody = response.errorBody()?.string() ?: "Registration failed"
+                return@withContext Result.failure(Exception(errorBody))
             }
         } catch (e: Exception) {
-            Log.e("UserRepository", "Registration exception: ${e.message}", e)
             return@withContext Result.failure(e)
         }
-    }
-
-    private suspend fun fallbackToLocalRegistration(
-        userId: String,
-        email: String,
-        hashedPassword: String,
-        name: String,
-        fullName: String,
-        userType: UserType
-    ): Result<User> {
-        Log.d("UserRepository", "Falling back to local registration for $email")
-        val user = User(
-            id = userId,
-            email = email,
-            password = hashedPassword,
-            name = name,
-            fullName = fullName,
-            userType = userType,
-            verificationStatus = VerificationStatus.UNVERIFIED,
-            socialLinks = emptyMap()
-        )
-        userDao.insertUser(user)
-        return Result.success(user)
     }
 
     suspend fun loginUser(email: String, password: String): Result<User> = withContext(Dispatchers.IO) {
         try {
-            val isConnected = connectivityRepository.isNetworkAvailable.value
-            Log.d("UserRepository", "Network available for login: $isConnected")
+            val response = apiService.loginUser(
+                LoginRequest(email = email, password = password)
+            )
 
-            if (isConnected) {
-                try {
-                    Log.d("UserRepository", "Attempting API login for $email")
-                    val response = apiService.loginUser(
-                        LoginRequest(
-                            email = email,
-                            password = password
-                        )
-                    )
-
-                    if (response.isSuccessful) {
-                        val userResponse = response.body()
-                        if (userResponse != null) {
-                            Log.d("UserRepository", "API login successful for $email")
-
-                            sessionManager.saveToken(userResponse.token)
-                            
-                            // Clean up any existing local records with same email but different ID to avoid duplicates
-                            userDao.getUserByEmail(email)?.let { existing ->
-                                if (existing.id != userResponse.id) {
-                                    userDao.deleteUserById(existing.id)
-                                }
-                            }
-
-                            val user = User(
-                                id = userResponse.id,
-                                email = email,
-                                password = hashPassword(password),
-                                name = userResponse.name,
-                                fullName = userResponse.fullName,
-                                userType = UserType.valueOf(userResponse.userType),
-                                verificationStatus = VerificationStatus.UNVERIFIED,
-                                socialLinks = emptyMap()
-                            )
-                            
-                            sessionManager.createSession(user)
-                            userDao.insertUser(user)
-                            return@withContext Result.success(user)
-                        } else {
-                            Log.e("UserRepository", "API login response body is null")
-                            return@withContext Result.failure(Exception("Failed to parse user response"))
-                        }
-                    } else {
-                        val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                        Log.e("UserRepository", "API login failed: $errorBody")
-
-                        return@withContext fallbackToLocalLogin(email, password)
-                    }
-                } catch (e: Exception) {
-                    Log.e("UserRepository", "API login exception: ${e.message}", e)
-                    return@withContext fallbackToLocalLogin(email, password)
-                }
+            if (response.isSuccessful && response.body() != null) {
+                val userResponse = response.body()!!
+                sessionManager.saveToken(userResponse.token)
+                val user = User(
+                    id = userResponse.id,
+                    email = email,
+                    password = hashPassword(password),
+                    name = userResponse.name,
+                    fullName = userResponse.fullName,
+                    userType = UserType.valueOf(userResponse.userType),
+                    verificationStatus = VerificationStatus.UNVERIFIED,
+                    socialLinks = emptyMap()
+                )
+                sessionManager.createSession(user)
+                return@withContext Result.success(user)
             } else {
-                Log.d("UserRepository", "No network, using local login for $email")
-                return@withContext fallbackToLocalLogin(email, password)
+                val errorBody = response.errorBody()?.string() ?: "Login failed"
+                return@withContext Result.failure(Exception(errorBody))
             }
         } catch (e: Exception) {
-            Log.e("UserRepository", "Login exception: ${e.message}", e)
             return@withContext Result.failure(e)
-        }
-    }
-
-    private suspend fun fallbackToLocalLogin(email: String, password: String): Result<User> {
-        Log.d("UserRepository", "Falling back to local login for $email")
-        val hashedPassword = hashPassword(password)
-        val user = userDao.getUserByEmail(email)
-
-        return if (user != null && user.password == hashedPassword) {
-            Log.d("UserRepository", "Local login successful for $email")
-            Result.success(user)
-        } else {
-            Log.e("UserRepository", "Local login failed for $email: Invalid credentials")
-            Result.failure(Exception("Invalid credentials"))
         }
     }
 
     suspend fun deleteAccount(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val isConnected = connectivityRepository.isNetworkAvailable.value
-
-            if (isConnected) {
-                try {
-                    Log.d("UserRepository", "Attempting API delete for user $userId")
-                    val response = apiService.deleteUser(userId)
-
-                    if (response.isSuccessful) {
-                        Log.d("UserRepository", "API delete successful for user $userId")
-                        userDao.deleteUserById(userId)
-                        return@withContext Result.success(Unit)
-                    } else {
-                        val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                        Log.e("UserRepository", "API delete failed: $errorBody")
-                        userDao.deleteUserById(userId)
-                        return@withContext Result.success(Unit)
-                    }
-                } catch (e: Exception) {
-                    Log.e("UserRepository", "API delete exception: ${e.message}", e)
-                    userDao.deleteUserById(userId)
-                    return@withContext Result.success(Unit)
-                }
-            } else {
-                Log.d("UserRepository", "No network, deleting user $userId locally")
-                userDao.deleteUserById(userId)
+            val response = apiService.deleteUser(userId)
+            if (response.isSuccessful) {
                 return@withContext Result.success(Unit)
+            } else {
+                return@withContext Result.failure(Exception("Failed to delete user"))
             }
         } catch (e: Exception) {
-            Log.e("UserRepository", "Delete account exception: ${e.message}", e)
             return@withContext Result.failure(e)
         }
     }
 
     fun getAllUsers(): Flow<List<User>> {
-        return userDao.getAllUsers()
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            refreshAllUsers()
+        }
+        return allUsers
     }
 
     suspend fun refreshAllUsers(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getAllUsers()
             if (response.isSuccessful && response.body() != null) {
-                userDao.insertAllUsers(response.body()!!)
+                _allUsers.value = response.body()!!
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh users"))
@@ -268,7 +146,7 @@ class UserRepository @Inject constructor(
         try {
             val response = apiService.getUsersAwaitingVerification()
             if (response.isSuccessful && response.body() != null) {
-                userDao.insertAllUsers(response.body()!!)
+                _allUsers.value = response.body()!!
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh pending verifications"))
@@ -279,99 +157,55 @@ class UserRepository @Inject constructor(
     }
 
     fun getArtists(): Flow<List<User>> {
-        return userDao.getUsersByType(UserType.ARTIST)
-    }
-
-    suspend fun getUserByEmail(email: String): User? {
-        return userDao.getUserByEmail(email)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<User>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getExploreData()
+                if (response.isSuccessful) {
+                    flow.value = response.body()?.featuredArtists ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("UserRepository", "Failed to fetch artists: ${e.message}")
+            }
+        }
+        return flow
     }
 
     suspend fun getUserById(userId: String): User? {
-        try {
+        return try {
             val response = apiService.getUserById(userId)
-
-            if (response.isSuccessful) {
-                val user = response.body()
-                if (user != null) {
-                    // Update local user
-                    userDao.insertUser(user)
-                    return user
-                }
-            }
+            if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
-            Log.e("UserRepository", "API getUserById failed: ${e.message}", e)
+            null
         }
-
-        return userDao.getUserById(userId)
     }
 
     suspend fun promoteUserToArtist(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.updateUserType(userId, "ARTIST")
-            if (response.isSuccessful && response.body() != null) {
-                userDao.insertUser(response.body()!!)
+            if (response.isSuccessful) {
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
-                userDao.updateUserType(userId, "ARTIST")
-                return@withContext Result.success(Unit)
+                return@withContext Result.failure(Exception("Failed to promote user"))
             }
         } catch (e: Exception) {
-            Log.e("UserRepository", "promoteUserToArtist failed: ${e.message}")
-            userDao.updateUserType(userId, "ARTIST")
-            return@withContext Result.success(Unit)
+            return@withContext Result.failure(e)
         }
     }
 
     suspend fun promoteUserToAdmin(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.updateUserType(userId, "ADMIN")
-            if (response.isSuccessful && response.body() != null) {
-                userDao.insertUser(response.body()!!)
+            if (response.isSuccessful) {
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
-                val user = userDao.getUserById(userId) ?: return@withContext Result.failure(Exception("User not found"))
-                userDao.insertUser(user.copy(userType = UserType.ADMIN))
-                return@withContext Result.success(Unit)
+                return@withContext Result.failure(Exception("Failed to promote user"))
             }
         } catch (e: Exception) {
-            val user = userDao.getUserById(userId) ?: return@withContext Result.failure(e)
-            userDao.insertUser(user.copy(userType = UserType.ADMIN))
-            return@withContext Result.success(Unit)
-        }
-    }
-
-    suspend fun updateUserPassword(email: String, newPassword: String): Result<User> {
-        return try {
-            try {
-                val response = apiService.updateUserProfileJson(
-                    UserUpdateRequest(
-                        password = newPassword
-                    )
-                )
-
-                if (response.isSuccessful) {
-                    val updatedUser = response.body()
-                    if (updatedUser != null) {
-                        val localUser = userDao.getUserByEmail(email)
-                        if (localUser != null) {
-                            val hashedPassword = hashPassword(newPassword)
-                            val localUpdatedUser = localUser.copy(password = hashedPassword)
-                            userDao.insertUser(localUpdatedUser)
-                            return Result.success(localUpdatedUser)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("UserRepository", "API updateUserPassword failed: ${e.message}", e)
-            }
-
-            val user = userDao.getUserByEmail(email) ?: return Result.failure(Exception("User not found"))
-            val hashedPassword = hashPassword(newPassword)
-            val updatedUser = user.copy(password = hashedPassword)
-            userDao.insertUser(updatedUser)
-            Result.success(updatedUser)
-        } catch (e: Exception) {
-            Result.failure(e)
+            return@withContext Result.failure(e)
         }
     }
 
@@ -415,26 +249,35 @@ class UserRepository @Inject constructor(
                 website = websitePart
             )
 
-            if (response.isSuccessful) {
-                val updatedUser = response.body()
-                if (updatedUser != null) {
-                    // Sync with local database while preserving password
-                    val localUser = userDao.getUserByEmail(email)
-                    val userToSave = if (localUser != null) {
-                        updatedUser.copy(password = localUser.password)
-                    } else {
-                        updatedUser
-                    }
-                    userDao.insertUser(userToSave)
-                    Result.success(userToSave)
-                } else {
-                    Result.failure(Exception("Empty response body"))
-                }
+            if (response.isSuccessful && response.body() != null) {
+                val updatedUser = response.body()!!
+                sessionManager.createSession(updatedUser)
+                Result.success(updatedUser)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Update failed"))
             }
         } catch (e: Exception) {
-            Log.e("UserRepository", "updateUserProfile exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserByEmail(email: String): User? {
+        return try {
+            val response = apiService.getUserByEmail(email)
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun updateUserPassword(email: String, newPassword: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.resetPassword(email, newPassword)
+            if (response.isSuccessful) {
+                return@withContext Result.success(Unit)
+            }
+            Result.failure(Exception("Failed to update password"))
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -451,11 +294,7 @@ class UserRepository @Inject constructor(
     suspend fun updateCoverImage(email: String, imageUrl: String): Result<Unit> {
         return try {
             val result = updateUserProfile(email, coverImagePath = imageUrl)
-            if (result.isSuccess) {
-                Result.success(Unit)
-            } else {
-                Result.failure(result.exceptionOrNull() ?: Exception("Failed to update cover image"))
-            }
+            if (result.isSuccess) Result.success(Unit) else Result.failure(result.exceptionOrNull()!!)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -465,7 +304,7 @@ class UserRepository @Inject constructor(
         try {
             val response = apiService.approveArtist(artistId, approved)
             if (response.isSuccessful) {
-                userDao.updateArtistApprovalStatus(artistId, approved)
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to approve artist"))
@@ -475,16 +314,11 @@ class UserRepository @Inject constructor(
         }
     }
 
-    suspend fun isUserExists(email: String): Boolean {
-        val user = userDao.getUserByEmail(email)
-        return user != null
-    }
-
     suspend fun suspendUser(userId: String, isSuspended: Boolean = true): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.suspendUser(userId, isSuspended)
             if (response.isSuccessful) {
-                userDao.updateUserSuspension(userId, isSuspended)
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to suspend user"))
@@ -504,19 +338,26 @@ class UserRepository @Inject constructor(
     }
 
     fun getUsersAwaitingVerification(): Flow<List<User>> {
-        return userDao.getUsersByType(UserType.ARTIST).map { users ->
-            users.filter { it.verificationStatus == VerificationStatus.PENDING }
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<User>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getUsersAwaitingVerification()
+                if (response.isSuccessful) {
+                    flow.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("UserRepository", "Failed to fetch verifications: ${e.message}")
+            }
         }
+        return flow
     }
 
     suspend fun approveUserVerification(userId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.updateVerificationStatus(userId, VerificationUpdateRequest(status = "VERIFIED"))
             if (response.isSuccessful) {
-                val user = userDao.getUserById(userId)
-                if (user != null) {
-                    userDao.insertUser(user.copy(verificationStatus = VerificationStatus.VERIFIED))
-                }
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to approve verification"))
@@ -530,10 +371,7 @@ class UserRepository @Inject constructor(
         try {
             val response = apiService.updateVerificationStatus(userId, VerificationUpdateRequest(status = "REJECTED"))
             if (response.isSuccessful) {
-                val user = userDao.getUserById(userId)
-                if (user != null) {
-                    userDao.insertUser(user.copy(verificationStatus = VerificationStatus.REJECTED))
-                }
+                refreshAllUsers()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to reject verification"))

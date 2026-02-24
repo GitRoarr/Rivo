@@ -6,8 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.room.Room
-import com.rivo.app.data.local.*
 import com.rivo.app.data.remote.ApiService
 import com.rivo.app.data.remote.RetrofitClient
 import com.rivo.app.data.repository.*
@@ -22,24 +20,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 @Suppress("unused")
 object AppModule {
-    private const val DB_NAME = "rivo_db"
-
-    @Provides
-    @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-            .fallbackToDestructiveMigration()
-            .build()
-
-    @Provides @Singleton fun provideUserDao(db: AppDatabase): UserDao = db.userDao()
-    @Provides @Singleton fun provideMusicDao(db: AppDatabase): MusicDao = db.musicDao()
-    @Provides @Singleton fun providePlaylistDao(db: AppDatabase): PlaylistDao = db.playlistDao()
-    @Provides @Singleton fun provideWatchlistDao(db: AppDatabase): WatchlistDao = db.watchlistDao()
-    @Provides @Singleton fun provideArtistStatsDao(db: AppDatabase): ArtistStatsDao = db.artistStatsDao()
-    @Provides @Singleton fun provideFollowDao(db: AppDatabase): FollowDao = db.followDao()
-    @Provides @Singleton fun provideFeaturedContentDao(db: AppDatabase): FeaturedContentDao = db.featuredContentDao()
-    @Provides @Singleton fun provideNotificationDao(db: AppDatabase): NotificationDao = db.notificationDao()
-    @Provides @Singleton fun provideMusicPlayedDao(db: AppDatabase): MusicPlayedDao = db.musicPlayedDao()
 
     @Provides
     @Singleton
@@ -57,69 +37,60 @@ object AppModule {
     @Singleton
     fun provideExoPlayer(@ApplicationContext context: Context): ExoPlayer =
         ExoPlayer.Builder(context).build()
+
     @Provides
     @Singleton
     fun provideRetrofitClient(sessionManager: SessionManager): RetrofitClient =
         RetrofitClient(sessionManager)
-
 
     @Provides
     @Singleton
     fun provideApiService(retrofitClient: RetrofitClient): ApiService =
         retrofitClient.apiService
 
-
     @Provides
     @Singleton
     fun provideMusicRepository(
-        musicDao: MusicDao,
-        userDao: UserDao,
-        musicPlayedDao: MusicPlayedDao,
         sessionManager: SessionManager,
         apiService: ApiService,
         @ApplicationContext context: Context
     ): MusicRepository =
-        MusicRepository(musicDao, userDao, musicPlayedDao, sessionManager, apiService, context)
+        MusicRepository(sessionManager, apiService, context)
 
     @Provides
     @Singleton
     fun provideNotificationRepository(
         @ApplicationContext context: Context,
-        notificationDao: NotificationDao,
         apiService: ApiService
     ): NotificationRepository =
-        NotificationRepository(context, notificationDao, apiService)
+        NotificationRepository(context, apiService)
 
     @Provides
     @Singleton
     fun provideArtistStatsRepository(
-        artistStatsDao: ArtistStatsDao,
         apiService: ApiService
     ): ArtistStatsRepository =
-        ArtistStatsRepository(artistStatsDao, apiService)
+        ArtistStatsRepository(apiService)
 
     @Provides
     @Singleton
     fun provideAnalyticsRepository(
-        artistStatsDao: ArtistStatsDao,
+        apiService: ApiService,
         musicRepository: MusicRepository
     ): AnalyticsRepository =
-        AnalyticsRepository(artistStatsDao, musicRepository)
+        AnalyticsRepository(apiService, musicRepository)
 
     @Provides
     @Singleton
     fun provideConnectivityRepository(@ApplicationContext context: Context): ConnectivityRepository =
         ConnectivityRepository(context)
 
-
-
     @Provides
     @Singleton
     fun provideFollowRepository(
-        followDao: FollowDao,
         apiService: ApiService
     ): FollowRepository =
-        FollowRepository(followDao, apiService)
+        FollowRepository(apiService)
 
     @Provides
     @Singleton
@@ -134,36 +105,30 @@ object AppModule {
     @Provides
     @Singleton
     fun providePlaylistRepository(
-        playlistDao: PlaylistDao,
-        userRepository: UserRepository,
-        musicDao: MusicDao,
         apiService: ApiService
     ): PlaylistRepository =
-        PlaylistRepository(playlistDao, musicDao, userRepository, apiService)
+        PlaylistRepository(apiService)
 
     @Provides
     @Singleton
     fun provideSearchRepository(
-        musicDao: MusicDao,
-        userDao: UserDao
+        apiService: ApiService
     ): SearchRepository =
-        SearchRepository(musicDao, userDao)
+        SearchRepository(apiService)
 
     @Provides
     @Singleton
     fun provideVerificationRepository(
-        userDao: UserDao,
+        apiService: ApiService,
         notificationRepository: NotificationRepository,
         @ApplicationContext context: Context
     ): VerificationRepository =
-        VerificationRepository(userDao, notificationRepository, context)
+        VerificationRepository(apiService, notificationRepository, context)
 
     @Provides
     @Singleton
     fun provideWatchlistRepository(
-        watchlistDao: WatchlistDao,
-        userRepository: UserRepository,
         apiService: ApiService
     ): WatchlistRepository =
-        WatchlistRepository(watchlistDao, userRepository, apiService)
+        WatchlistRepository(apiService)
 }

@@ -4,17 +4,15 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
-import com.rivo.app.data.local.UserDao
-import com.rivo.app.data.local.MusicDao
-import com.rivo.app.data.local.MusicPlayedDao
 import com.rivo.app.data.model.Music
-import com.rivo.app.data.model.MusicApprovalStatus
-import com.rivo.app.data.model.MusicPlayed
 import com.rivo.app.data.remote.ApiService
 import com.rivo.app.data.remote.ExploreResponse
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -27,42 +25,37 @@ import javax.inject.Singleton
 
 @Singleton
 class MusicRepository @Inject constructor(
-    private val musicDao: MusicDao,
-    private val userDao: UserDao,
-    private val musicPlayedDao: MusicPlayedDao,
     private val sessionManager: SessionManager,
     private val apiService: ApiService,
     @ApplicationContext private val context: Context
 ) {
+    private val _allMusic = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+    val allMusic: kotlinx.coroutines.flow.StateFlow<List<Music>> = _allMusic.asStateFlow()
+
     fun getAllMusic(): Flow<List<Music>> {
-        // Trigger a remote sync in the background
-        refreshMusic()
-        return musicDao.getAllMusic()
+        return allMusic
     }
 
-    private fun refreshMusic() {
-        // Use a safe scope for background sync
-        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val response = apiService.getAllMusic()
-                if (response.isSuccessful) {
-                    response.body()?.let { musicList ->
-                        musicDao.insertAllMusic(musicList)
-                    }
+    suspend fun refreshMusic() = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getAllMusic()
+            if (response.isSuccessful) {
+                response.body()?.let { musicList ->
+                    _allMusic.value = musicList
                 }
-            } catch (e: Exception) {
-                Log.e("MusicRepository", "Background sync failed for music: ${e.message}")
             }
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Refresh music failed: ${e.message}")
         }
     }
 
-    suspend fun refreshAllMusicAdmin(): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun refreshAllMusicAdmin(): Result<List<Music>> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getAllMusicAdmin()
             if (response.isSuccessful && response.body() != null) {
-                musicDao.insertAllMusic(response.body()!!)
-                return@withContext Result.success(Unit)
+                val music = response.body()!!
+                _allMusic.value = music
+                return@withContext Result.success(music)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh admin music"))
             }
@@ -71,12 +64,11 @@ class MusicRepository @Inject constructor(
         }
     }
 
-    suspend fun refreshPendingMusic(): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun refreshPendingMusic(): Result<List<Music>> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getPendingMusic()
             if (response.isSuccessful && response.body() != null) {
-                musicDao.insertAllMusic(response.body()!!)
-                return@withContext Result.success(Unit)
+                return@withContext Result.success(response.body()!!)
             } else {
                 return@withContext Result.failure(Exception("Failed to refresh pending music"))
             }
@@ -85,57 +77,43 @@ class MusicRepository @Inject constructor(
         }
     }
 
-    suspend fun incrementPlayCountIfFirstTime(musicId: String) {
-        val userId = sessionManager.getCurrentUserId()
-        val hasPlayed = musicPlayedDao.hasUserPlayedMusic(userId, musicId) > 0
-        if (!hasPlayed) {
-            musicDao.incrementPlayCount(musicId)
-            musicPlayedDao.insertMusicPlayed(MusicPlayed(userId = userId, musicId = musicId))
-            // Sync play count to server
-            try {
-                apiService.incrementMusicPlay(musicId)
-            } catch (e: Exception) {
-                Log.e("MusicRepository", "Failed to sync play count: ${e.message}")
+    suspend fun getMusicByGenre(genre: String): Result<List<Music>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getMusicByGenre(genre)
+            if (response.isSuccessful && response.body() != null) {
+                return@withContext Result.success(response.body()!!)
+            } else {
+                return@withContext Result.failure(Exception("Failed to get music by genre"))
             }
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
+    }
+
+    suspend fun incrementPlayCountIfFirstTime(musicId: String) {
+        try {
+            apiService.incrementMusicPlay(musicId)
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Failed to sync play count: ${e.message}")
         }
     }
 
     suspend fun getFavoriteMusic(): Flow<List<Music>> {
-        val userId = sessionManager.getCurrentUserId()
-        // Sync liked songs from MongoDB Atlas in background
-        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            syncLikedSongsFromBackend(userId)
-        }
-        return musicDao.getFavoriteMusic(userId)
-    }
-
-    private suspend fun syncLikedSongsFromBackend(userId: String) {
-        try {
-            val response = apiService.getLikedSongs()
-            if (response.isSuccessful) {
-                val likedSongs = response.body() ?: emptyList()
-                // Clear old local favorites for this user, then re-stamp the ones from the server
-                musicDao.clearAllFavoritesForUser(userId)
-                if (likedSongs.isNotEmpty()) {
-                    val stamped = likedSongs.map { it.copy(isFavorite = true, userId = userId) }
-                    musicDao.insertAllMusic(stamped)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+        withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getLikedSongs()
+                if (response.isSuccessful) {
+                    flow.value = response.body() ?: emptyList()
                 }
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to fetch liked songs: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("MusicRepository", "Failed to sync liked songs from backend: ${e.message}")
         }
+        return flow
     }
 
     suspend fun toggleFavorite(musicId: String, isFavorite: Boolean) {
-        val userId = sessionManager.getCurrentUserId()
-        // Optimistically update local DB (set userId so getFavoriteMusic query finds it)
-        if (isFavorite) {
-            musicDao.markAsFavoriteForUser(musicId, userId)
-        } else {
-            musicDao.updateFavoriteStatus(musicId, false)
-        }
-        // Sync to MongoDB Atlas
         try {
             if (isFavorite) {
                 apiService.likeMusic(musicId)
@@ -143,90 +121,123 @@ class MusicRepository @Inject constructor(
                 apiService.unlikeMusic(musicId)
             }
         } catch (e: Exception) {
-            // Revert local change if backend call failed
-            Log.e("MusicRepository", "Failed to sync favorite to backend, reverting: ${e.message}")
-            musicDao.updateFavoriteStatus(musicId, !isFavorite)
+            Log.e("MusicRepository", "Failed to sync favorite to backend: ${e.message}")
             throw e
         }
     }
 
     suspend fun getMusicById(musicId: String): Music? {
-        return musicDao.getMusicById(musicId)
+        return try {
+            val response = apiService.getMusicById(musicId)
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun getArtistMusic(artistId: String): Flow<List<Music>> {
-        return musicDao.getArtistMusic(artistId)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getMusicByArtist(artistId)
+                if (response.isSuccessful) {
+                    flow.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to fetch artist music: ${e.message}")
+            }
+        }
+        return flow
     }
 
     suspend fun refreshArtistMusic(artistId: String): Result<List<Music>> = withContext(Dispatchers.IO) {
         return@withContext try {
             val response = apiService.getMusicByArtist(artistId)
             if (response.isSuccessful && response.body() != null) {
-                val musicList = response.body()!!
-
-                // Best-effort cache in Room, but never fail the network result
-                try {
-                    musicDao.insertAllMusic(musicList)
-                } catch (e: Exception) {
-                    Log.e("MusicRepository", "Failed to cache artist music in Room: ${e.message}", e)
-                }
-
-                Result.success(musicList)
+                Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch artist music"))
             }
         } catch (e: Exception) {
-            Log.e("MusicRepository", "refreshArtistMusic exception: ${e.message}", e)
             Result.failure(e)
         }
     }
 
     suspend fun incrementPlayCount(musicId: String) {
-        musicDao.incrementPlayCount(musicId)
+        try {
+            apiService.incrementMusicPlay(musicId)
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Failed to increment play count: ${e.message}")
+        }
     }
 
     fun getNewReleases(): Flow<List<Music>> {
-        return musicDao.getNewReleases()
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getExploreData()
+                if (response.isSuccessful) {
+                    flow.value = response.body()?.newReleases ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to fetch new releases: ${e.message}")
+            }
+        }
+        return flow
     }
 
     fun getTrendingMusic(): Flow<List<Music>> {
-        return musicDao.getTrendingMusic()
-    }
-
-    suspend fun insertMusic(music: Music) {
-        musicDao.insertMusic(music)
-        Log.d("UploadDebug", "Music inserted: ${music.title}")
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getExploreData()
+                if (response.isSuccessful) {
+                    flow.value = response.body()?.trendingMusic ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to fetch trending music: ${e.message}")
+            }
+        }
+        return flow
     }
 
     suspend fun deleteMusic(musicId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.deleteMusic(musicId)
             if (response.isSuccessful) {
-                val music = musicDao.getMusicById(musicId)
-                music?.let { musicDao.deleteMusic(it) }
+                refreshMusic()
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to delete music"))
             }
         } catch (e: Exception) {
-            val music = musicDao.getMusicById(musicId)
-            music?.let { musicDao.deleteMusic(it) }
-            return@withContext Result.success(Unit)
+            return@withContext Result.failure(e)
         }
     }
 
     fun getPendingApprovalMusic(): Flow<List<Music>> {
-        return musicDao.getMusicByApprovalStatus(MusicApprovalStatus.PENDING)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Music>>(emptyList())
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getPendingMusic()
+                if (response.isSuccessful) {
+                    flow.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicRepository", "Failed to fetch pending music: ${e.message}")
+            }
+        }
+        return flow
     }
 
     suspend fun approveMusic(musicId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.approveMusic(musicId)
             if (response.isSuccessful) {
-                val music = musicDao.getMusicById(musicId)
-                music?.let {
-                    musicDao.insertMusic(it.copy(approvalStatus = MusicApprovalStatus.APPROVED))
-                }
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to approve music"))
@@ -240,10 +251,6 @@ class MusicRepository @Inject constructor(
         try {
             val response = apiService.rejectMusic(musicId)
             if (response.isSuccessful) {
-                val music = musicDao.getMusicById(musicId)
-                music?.let {
-                    musicDao.insertMusic(it.copy(approvalStatus = MusicApprovalStatus.REJECTED))
-                }
                 return@withContext Result.success(Unit)
             } else {
                 return@withContext Result.failure(Exception("Failed to reject music"))
@@ -305,22 +312,14 @@ class MusicRepository @Inject constructor(
             )
 
             if (response.isSuccessful) {
-                val music = response.body()
-                if (music != null) {
-                    Result.success(music)
-                } else {
-                    Result.failure(Exception("Empty response body"))
-                }
+                response.body()?.let { Result.success(it) } ?: Result.failure(Exception("Empty response"))
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Upload failed"))
             }
         } catch (e: Exception) {
-            Log.e("MusicRepository", "uploadMusic exception: ${e.message}", e)
             Result.failure(e)
         } finally {
-            tempAudioFile?.let {
-                if (it.exists()) it.delete()
-            }
+            tempAudioFile?.delete()
         }
     }
 
@@ -328,10 +327,8 @@ class MusicRepository @Inject constructor(
         val retriever = MediaMetadataRetriever()
         return try {
             retriever.setDataSource(context, audioUri)
-            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            durationStr?.toLongOrNull() ?: 0L
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
         } catch (e: Exception) {
-            e.printStackTrace()
             0L
         } finally {
             retriever.release()
@@ -342,20 +339,11 @@ class MusicRepository @Inject constructor(
         return@withContext try {
             val response = apiService.getExploreData()
             if (response.isSuccessful && response.body() != null) {
-                val data = response.body()!!
-                try {
-                    musicDao.insertAllMusic(data.trendingMusic)
-                    musicDao.insertAllMusic(data.newReleases)
-                    musicDao.insertAllMusic(data.featuredMusic)
-                } catch (cacheError: Exception) {
-                    Log.e("MusicRepository", "Caching explore data failed: ${cacheError.message}", cacheError)
-                }
-                Result.success(data)
+                Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Failed to fetch explore data"))
             }
         } catch (e: Exception) {
-            Log.e("MusicRepository", "getExploreData exception: ${e.message}", e)
             Result.failure(e)
         }
     }

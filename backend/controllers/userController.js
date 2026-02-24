@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler")
 const jwt = require("jsonwebtoken")
 const bcrypt = require("bcryptjs")
 const User = require("../models/userModel")
+const VerificationRequest = require("../models/verificationRequestModel")
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -241,10 +242,67 @@ const submitVerificationRequest = asyncHandler(async (req, res) => {
         throw new Error("Only artists can request verification")
     }
 
+    // Capture the additional form inputs and uploaded files
+    const { artistName, email, phoneNumber, location, primaryGenre, artistBio, socialLinks } = req.body;
+    let idDocumentUrl = '';
+    let proofOfArtistryUrl = '';
+
+    if (req.files && req.files.idDocument) {
+        idDocumentUrl = req.files.idDocument[0].path;
+    }
+    if (req.files && req.files.proofOfArtistry) {
+        proofOfArtistryUrl = req.files.proofOfArtistry[0].path;
+    }
+
+    if (!idDocumentUrl || !proofOfArtistryUrl) {
+        res.status(400);
+        throw new Error("ID Document and Proof of Artistry are required.");
+    }
+
+    let parsedSocialLinks = {};
+    if (socialLinks) {
+        try {
+            parsedSocialLinks = typeof socialLinks === 'string' ? JSON.parse(socialLinks) : socialLinks;
+        } catch (e) {
+            console.error("Could not parse social links.");
+        }
+    }
+
+    // Check if an existing pending request is there
+    let verificationRequest = await VerificationRequest.findOne({ userId: user._id, status: 'PENDING' });
+
+    if (verificationRequest) {
+        // Update existing pending request
+        verificationRequest.artistName = artistName;
+        verificationRequest.email = email;
+        verificationRequest.phoneNumber = phoneNumber;
+        verificationRequest.location = location;
+        verificationRequest.primaryGenre = primaryGenre;
+        verificationRequest.artistBio = artistBio;
+        verificationRequest.socialLinks = parsedSocialLinks;
+        verificationRequest.idDocumentUrl = idDocumentUrl;
+        verificationRequest.proofOfArtistryUrl = proofOfArtistryUrl;
+        await verificationRequest.save();
+    } else {
+        // Create new request
+        verificationRequest = await VerificationRequest.create({
+            userId: user._id,
+            artistName,
+            email,
+            phoneNumber,
+            location,
+            primaryGenre,
+            artistBio,
+            socialLinks: parsedSocialLinks,
+            idDocumentUrl,
+            proofOfArtistryUrl
+        });
+    }
+
     user.verificationStatus = "PENDING"
     await user.save()
 
-    res.status(201).json({ message: "Verification request submitted" })
+    res.status(201).json({ message: "Verification request submitted successfully." })
 })
 
 
@@ -261,7 +319,10 @@ const getVerificationStatus = asyncHandler(async (req, res) => {
         throw new Error("Not authorized")
     }
 
-    res.json({ status: user.verificationStatus })
+    // Optionally fetch the actual request document
+    const verificationRequest = await VerificationRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
+
+    res.json({ status: user.verificationStatus, request: verificationRequest })
 })
 
 const updateVerificationStatus = asyncHandler(async (req, res) => {

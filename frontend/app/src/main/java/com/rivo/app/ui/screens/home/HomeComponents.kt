@@ -19,9 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,25 +32,21 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
-import com.rivo.app.data.remote.BannerItem
 import com.rivo.app.ui.theme.*
 import kotlinx.coroutines.delay
 
-// ═════════════════════════════════════════════════════════════════════════════
-// MODERN BANNER CAROUSEL
-// ═════════════════════════════════════════════════════════════════════════════
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ModernBannerCarousel(
-    banners: List<BannerItem>,
-    onExploreClick: (String) -> Unit,
+    featuredMusic: List<Music>,
+    onMusicClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (banners.isEmpty()) return
-    val pagerState = rememberPagerState(pageCount = { banners.size })
+    if (featuredMusic.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { featuredMusic.size })
 
-    // Auto-scroll every 4.5 s
+
     LaunchedEffect(pagerState.pageCount) {
         if (pagerState.pageCount <= 1) return@LaunchedEffect
         while (true) {
@@ -70,17 +67,17 @@ fun ModernBannerCarousel(
                 .padding(horizontal = 20.dp),
             pageSpacing = 12.dp
         ) { page ->
-            val banner = banners[page]
+            val music = featuredMusic[page]
             // Scale-in effect per page
             val pageOffset = (pagerState.currentPage - page) +
                     pagerState.currentPageOffsetFraction
             val scale = lerp(0.93f, 1f, 1f - pageOffset.coerceIn(-1f, 1f).let {
                 if (it < 0) -it else it
             })
-            BannerCard(
-                banner = banner,
+            FeaturedMusicCard(
+                music = music,
                 scale = scale,
-                onExploreClick = onExploreClick
+                onMusicClick = onMusicClick
             )
         }
 
@@ -92,7 +89,7 @@ fun ModernBannerCarousel(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(banners.size) { index ->
+            repeat(featuredMusic.size) { index ->
                 val isSelected = pagerState.currentPage == index
                 val width by animateDpAsState(
                     targetValue = if (isSelected) 24.dp else 6.dp,
@@ -118,103 +115,232 @@ fun ModernBannerCarousel(
 }
 
 @Composable
-private fun BannerCard(banner: BannerItem, scale: Float, onExploreClick: (String) -> Unit) {
+private fun FeaturedMusicCard(music: Music, scale: Float, onMusicClick: (String) -> Unit) {
+    // Animations for creative effects
+    val infiniteTransition = rememberInfiniteTransition(label = "banner_anim")
+    
+    // Pulsing glow effect behind the play button
+    val buttonGlow by infiniteTransition.animateFloat(
+        initialValue = 0.4f, targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "btn_glow"
+    )
+    
+    // Subtle floating effect for the card
+    val floatOffset by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 4f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "float"
+    )
+    
+    // Color shift for gradient border
+    val colorShift by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing)),
+        label = "color_shift"
+    )
+
+    // Shimmer sweep
+    val shimmerX by infiniteTransition.animateFloat(
+        initialValue = -400f, targetValue = 800f,
+        animationSpec = infiniteRepeatable(tween(3500, easing = LinearEasing)),
+        label = "shimmer"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .scale(scale)
+            .offset(y = floatOffset.dp)
             .clip(RoundedCornerShape(28.dp))
+            .border(
+                width = 2.dp,
+                brush = Brush.sweepGradient(
+                    listOf(
+                        RivoPurple.copy(alpha = 0.5f + colorShift * 0.3f),
+                        RivoPink.copy(alpha = 0.4f),
+                        RivoCyan.copy(alpha = 0.3f + (1f - colorShift) * 0.3f),
+                        RivoPurple.copy(alpha = 0.5f + colorShift * 0.3f)
+                    )
+                ),
+                shape = RoundedCornerShape(28.dp)
+            )
     ) {
+        // Background image (music cover)
         AsyncImage(
-            model = banner.imageUrl,
-            contentDescription = banner.title,
+            model = music.artworkUri,
+            contentDescription = music.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
-        // Multi-stop gradient for depth
+        
+        // Multi-layer gradient overlay for depth
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Black.copy(0.18f),
-                        0.4f to Color.Transparent,
-                        1f to Color.Black.copy(0.88f)
+                        0f to Color.Black.copy(0.1f),
+                        0.3f to Color.Transparent,
+                        0.6f to Color.Black.copy(0.4f),
+                        1f to Color.Black.copy(0.92f)
                     )
                 )
         )
-        // Shimmer side accent
+        
+        // Purple/Pink side accent glow
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        listOf(RivoPurple.copy(0.2f), Color.Transparent, RivoPink.copy(0.1f))
+                        listOf(RivoPurple.copy(0.25f), Color.Transparent, RivoPink.copy(0.15f))
                     )
                 )
         )
+        
+        // Shimmer sweep overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                White.copy(alpha = 0.08f),
+                                Color.Transparent
+                            ),
+                            start = Offset(shimmerX, 0f),
+                            end = Offset(shimmerX + 250f, size.height)
+                        )
+                    )
+                }
+        )
 
+        // Content
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(22.dp)
         ) {
-            // Glowing pill tag
+            // Animated glowing pill tag
             GlowingPill(text = "FEATURED")
-            Spacer(modifier = Modifier.height(8.dp))
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            // Title with shadow
             Text(
-                text = banner.title ?: "",
-                style = MaterialTheme.typography.headlineSmall.copy(
+                text = music.title ?: "",
+                style = MaterialTheme.typography.headlineMedium.copy(
                     color = White,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.8).sp,
+                    shadow = Shadow(
+                        color = Color.Black.copy(0.5f),
+                        offset = Offset(2f, 2f),
+                        blurRadius = 8f
+                    )
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = banner.subtitle ?: "",
-                style = MaterialTheme.typography.bodyMedium.copy(color = White.copy(0.75f)),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Play Now button
-                Button(
-                    onClick = { onExploreClick(banner.actionUrl) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.height(38.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                Brush.horizontalGradient(listOf(RivoPurple, RivoPink)),
-                                RoundedCornerShape(14.dp)
+            
+            // Artist name as subtitle
+                if (!music.artist.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = music.artist.split("_").firstOrNull()?.replaceFirstChar { it.uppercase() } ?: music.artist,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = White.copy(0.8f),
+                            letterSpacing = 0.3.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Listen Now button with animated glow
+                Box(
+                    modifier = Modifier
+                        .drawBehind {
+                            // Glow behind button
+                            drawRoundRect(
+                                brush = Brush.horizontalGradient(listOf(RivoPurple, RivoPink)),
+                                cornerRadius = CornerRadius(18f, 18f),
+                                alpha = buttonGlow * 0.5f,
+                                size = size.copy(
+                                    width = size.width + 16f,
+                                    height = size.height + 12f
+                                ),
+                                topLeft = Offset(-8f, -6f)
                             )
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                        }
+                ) {
+                    Button(
+                        onClick = { onMusicClick(music.id) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.height(44.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.PlayArrow, null, tint = White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Listen Now", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    Brush.horizontalGradient(listOf(RivoPurple, RivoPink)),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 22.dp, vertical = 12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Animated play icon
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "Listen Now",
+                                    color = White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
                         }
                     }
                 }
-                // Info ghost button
-                OutlinedButton(
-                    onClick = {},
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = White),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, White.copy(0.35f)),
-                    modifier = Modifier.height(38.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
-                ) {
-                    Icon(Icons.Default.Info, null, tint = White, modifier = Modifier.size(15.dp))
-                }
             }
+        }
+        
+        // Floating music icon in corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(18.dp)
+                .size(40.dp)
+                .background(
+                    Brush.radialGradient(
+                        listOf(White.copy(alpha = 0.15f), Color.Transparent)
+                    ),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = White.copy(alpha = 0.7f),
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
@@ -742,10 +868,6 @@ fun FreshHitListItem(
     }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// UTILITIES
-// ═════════════════════════════════════════════════════════════════════════════
-
 fun formatCount(count: Int): String = when {
     count >= 1_000_000 -> "%.1fM".format(count / 1_000_000f)
     count >= 1_000     -> "%.1fK".format(count / 1_000f)
@@ -756,10 +878,6 @@ fun formatDuration(millis: Long): String {
     val s = millis / 1000
     return "%d:%02d".format(s / 60, s % 60)
 }
-
-// ═════════════════════════════════════════════════════════════════════════════
-// LEGACY COMPAT — kept so other files compiling against old names don't break
-// ═════════════════════════════════════════════════════════════════════════════
 
 @Composable
 fun GlassMusicCard(music: Music, isFavorite: Boolean, onClick: () -> Unit) =

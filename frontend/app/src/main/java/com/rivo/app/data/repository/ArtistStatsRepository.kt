@@ -1,33 +1,41 @@
 package com.rivo.app.data.repository
 
 import android.util.Log
-import com.rivo.app.data.local.ArtistStatsDao
+import kotlinx.coroutines.flow.Flow
 import com.rivo.app.data.model.ArtistAnalytics
 import com.rivo.app.data.remote.ApiService
-import kotlinx.coroutines.flow.Flow
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+
 @Singleton
 class ArtistStatsRepository @Inject constructor(
-    private val artistStatsDao: ArtistStatsDao,
     private val apiService: ApiService
 ) {
+    private val _artistAnalytics = MutableStateFlow<Map<String, ArtistAnalytics>>(emptyMap())
 
     fun getArtistAnalytics(artistId: String): Flow<ArtistAnalytics?> {
-        return artistStatsDao.getArtistAnalyticsFlow(artistId)
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            refreshArtistStats(artistId)
+        }
+        return _artistAnalytics.map { it[artistId] }
     }
 
-    suspend fun refreshArtistStats(): Result<ArtistAnalytics> {
+    suspend fun refreshArtistStats(artistId: String? = null): Result<ArtistAnalytics> {
         return try {
             val response = apiService.getArtistStats()
             if (response.isSuccessful && response.body() != null) {
                 val stats = response.body()!!
-                // Map frontend model - we use artistId as primary key
-                // For now, we don't have artistId in the response, so we'll need it or assume current
                 val analytics = ArtistAnalytics(
-                    artistId = "", // We'll need to set this from caller or rethink model
+                    artistId = artistId ?: "", 
                     totalPlays = stats.totalPlays,
                     newFollowers = stats.followersCount,
                     totalSongs = stats.totalSongs,
@@ -35,7 +43,11 @@ class ArtistStatsRepository @Inject constructor(
                     unreadNotifications = stats.unreadNotifications,
                     lastUpdated = Date()
                 )
-                // Need a better way to handle artistId here
+                if (artistId != null) {
+                    val currentMap = _artistAnalytics.value.toMutableMap()
+                    currentMap[artistId] = analytics
+                    _artistAnalytics.value = currentMap
+                }
                 Result.success(analytics)
             } else {
                 Result.failure(Exception("Failed to fetch artist stats: ${response.message()}"))
@@ -47,68 +59,32 @@ class ArtistStatsRepository @Inject constructor(
     }
 
     suspend fun getArtistAnalyticsById(artistId: String): ArtistAnalytics? {
-        return artistStatsDao.getArtistAnalytics(artistId)
-    }
-
-    suspend fun addArtistAnalytics(artistAnalytics: ArtistAnalytics) {
-        artistStatsDao.insertArtistAnalytics(artistAnalytics)
-    }
-
-    suspend fun incrementPlayCount(artistId: String) {
-        updateAnalyticsField(artistId) { analytics ->
-            analytics.copy(
-                totalPlays = analytics.totalPlays + 1,
-                lastUpdated = Date()
-            )
-        }
+        return _artistAnalytics.value[artistId]
     }
 
     suspend fun incrementArtistPlayCount(artistId: String) {
-        incrementPlayCount(artistId)
+        // Increment handled on backend
     }
 
     suspend fun incrementPlaylistAdds(artistId: String) {
-        updateAnalyticsField(artistId) { analytics ->
-            analytics.copy(
-                playlistAdds = analytics.playlistAdds + 1,
-                lastUpdated = Date()
-            )
-        }
+        // Increment handled on backend
     }
 
     suspend fun incrementWatchlistSaves(artistId: String) {
-        updateAnalyticsField(artistId) { analytics ->
-            analytics.copy(
-                watchlistSaves = analytics.watchlistSaves + 1,
-                lastUpdated = Date()
-            )
-        }
+        // Increment handled on backend
     }
 
     suspend fun updateMonthlyListeners(artistId: String, count: Int) {
-        updateAnalyticsField(artistId) { analytics ->
-            analytics.copy(
-                monthlyListeners = count,
-                lastUpdated = Date()
-            )
-        }
+        // Backend handles demographic/reach metrics
     }
 
-    private suspend fun updateAnalyticsField(
-        artistId: String,
-        update: (ArtistAnalytics) -> ArtistAnalytics
-    ) {
-        val analytics = artistStatsDao.getArtistAnalytics(artistId)
-        if (analytics != null) {
-            artistStatsDao.updateArtistAnalytics(update(analytics))
-        } else {
-            artistStatsDao.insertArtistAnalytics(
-                ArtistAnalytics(
-                    artistId = artistId,
-                    totalPlays = 0,
-                    lastUpdated = Date()
-                )
-            )
-        }
+    suspend fun incrementPlayCount(artistId: String) {
+        incrementArtistPlayCount(artistId)
+    }
+
+    suspend fun addArtistAnalytics(analytics: ArtistAnalytics) {
+        val currentMap = _artistAnalytics.value.toMutableMap()
+        currentMap[analytics.artistId] = analytics
+        _artistAnalytics.value = currentMap
     }
 }

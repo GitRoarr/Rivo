@@ -1,26 +1,12 @@
 package com.rivo.app.data.model
 
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.PrimaryKey
-
 enum class FeaturedType {
     SONG,
     ARTIST,
     BANNER
 }
 
-@Entity(
-    tableName = "featured_content",
-    indices = [
-        androidx.room.Index("createdBy"),
-        androidx.room.Index("featuredBy"),
-        androidx.room.Index("contentId"),
-        androidx.room.Index("type")
-    ]
-)
 data class FeaturedContent(
-    @PrimaryKey
     val id: String,
     val contentId: String? = null,
     val type: FeaturedType,

@@ -1,188 +1,143 @@
 package com.rivo.app.data.repository
 
 import android.util.Log
-import com.rivo.app.data.local.WatchlistDao
 import com.rivo.app.data.model.Watchlist
-import com.rivo.app.data.model.WatchlistMusicCrossRef
-import com.rivo.app.data.local.WatchlistWithMusic
+import com.rivo.app.data.model.WatchlistWithMusic
 import com.rivo.app.data.remote.ApiService
 import com.rivo.app.data.remote.WatchlistRequest
 import com.rivo.app.data.remote.AddSongRequest
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import javax.inject.Singleton
+
+@Singleton
 class WatchlistRepository @Inject constructor(
-    private val watchlistDao: WatchlistDao,
-    private val userRepository: UserRepository,
     private val apiService: ApiService
 ) {
-    /**
-     * Sync the current user's watchlists from the MongoDB Atlas backend
-     * into the local Room cache so the Library screen is backend-based.
-     */
-    suspend fun syncUserWatchlistsFromRemote(userId: String) {
+    private val _watchlists = MutableStateFlow<List<Watchlist>>(emptyList())
+    val watchlists: StateFlow<List<Watchlist>> = _watchlists.asStateFlow()
+
+    suspend fun syncUserWatchlistsFromRemote() {
         try {
             val response = apiService.getUserWatchlists()
             if (response.isSuccessful) {
-                val remoteWatchlists = response.body() ?: emptyList()
-                remoteWatchlists.forEach { watchlist ->
-                    watchlistDao.insert(watchlist)
-                }
-            } else {
-                Log.e(
-                    "WatchlistRepository",
-                    "syncUserWatchlistsFromRemote failed: ${response.errorBody()?.string()}"
-                )
+                _watchlists.value = response.body() ?: emptyList()
             }
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "Error syncing watchlists from remote: ${e.message}", e)
+            Log.e("WatchlistRepository", "Error syncing watchlists from remote: ${e.message}")
         }
     }
 
     fun getWatchlistsByUser(userId: String): Flow<List<Watchlist>> {
-        // Returns watchlists from the local cache, which is now kept in sync
-        // with MongoDB Atlas via syncUserWatchlistsFromRemote.
-        return watchlistDao.getWatchlistsByUser(userId)
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            syncUserWatchlistsFromRemote()
+        }
+        return watchlists
     }
 
-    fun getWatchlistWithMusic(watchlistId: Long): Flow<WatchlistWithMusic> {
-        return watchlistDao.getWatchlistWithMusic(watchlistId)
+    fun getWatchlistWithMusic(watchlistId: Long): Flow<WatchlistWithMusic?> {
+        val flow = MutableStateFlow<WatchlistWithMusic?>(null)
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiService.getWatchlistById(watchlistId)
+                if (response.isSuccessful) {
+                    val watchlist = response.body()
+                    if (watchlist != null) {
+                        val musicList = watchlist.songs.mapNotNull { songId ->
+                            try {
+                                val musicResponse = apiService.getMusicById(songId)
+                                if (musicResponse.isSuccessful) musicResponse.body() else null
+                            } catch (e: Exception) { null }
+                        }
+                        flow.value = WatchlistWithMusic(watchlist = watchlist, musicList = musicList)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("WatchlistRepository", "Error fetching watchlist with music: ${e.message}")
+            }
+        }
+        return flow
     }
 
     suspend fun createWatchlist(watchlist: Watchlist): Boolean {
         return try {
-            val userId = watchlist.createdBy ?: ""
-            val user = userRepository.getUserById(userId)
-
-            if (user == null) {
-                Log.e("WatchlistRepository", "No user found with ID: $userId")
-                return false
-            }
-
-            // Try API first
-            try {
-                val response = apiService.createWatchlist(
-                    WatchlistRequest(
-                        id = watchlist.id,
-                        name = watchlist.name ?: "",
-                        description = watchlist.description ?: ""
-                    )
+            val response = apiService.createWatchlist(
+                WatchlistRequest(
+                    id = watchlist.id,
+                    name = watchlist.name ?: "",
+                    description = watchlist.description ?: ""
                 )
+            )
 
-                if (response.isSuccessful) {
-                    // Save to local DB as well
-                    watchlistDao.insert(watchlist)
-                    return true
-                }
-            } catch (e: Exception) {
-                Log.e("WatchlistRepository", "API createWatchlist failed: ${e.message}", e)
+            if (response.isSuccessful) {
+                syncUserWatchlistsFromRemote()
+                return true
             }
-
-            // Fall back to local
-            watchlistDao.insert(watchlist)
-            true
+            false
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "Error creating watchlist: ${e.message}", e)
+            Log.e("WatchlistRepository", "Error creating watchlist: ${e.message}")
             false
         }
     }
 
     suspend fun deleteWatchlist(watchlist: Watchlist) {
         try {
-            // Try API first
-            try {
-                val response = apiService.deleteWatchlist(watchlist.id)
-
-                if (response.isSuccessful) {
-                    // Delete from local DB as well
-                    watchlistDao.deleteWatchlist(watchlist)
-                    return
-                }
-            } catch (e: Exception) {
-                Log.e("WatchlistRepository", "API deleteWatchlist failed: ${e.message}", e)
+            val response = apiService.deleteWatchlist(watchlist.id)
+            if (response.isSuccessful) {
+                syncUserWatchlistsFromRemote()
             }
-
-            // Fall back to local
-            watchlistDao.deleteWatchlist(watchlist)
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "Error deleting watchlist: ${e.message}", e)
-            throw e
+            Log.e("WatchlistRepository", "Error deleting watchlist: ${e.message}")
         }
     }
 
     suspend fun addMusicToWatchlist(watchlistId: Long, musicId: String) {
         try {
-            val response = apiService.addSongToWatchlist(
-                watchlistId,
-                AddSongRequest(musicId)
-            )
-
+            val response = apiService.addSongToWatchlist(watchlistId, AddSongRequest(musicId))
             if (response.isSuccessful) {
-                val crossRef = WatchlistMusicCrossRef(
-                    watchlistId = watchlistId,
-                    musicId = musicId
-                )
-                watchlistDao.addMusicToWatchlist(crossRef)
-                return
+                syncUserWatchlistsFromRemote()
             }
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "API addMusicToWatchlist failed: ${e.message}", e)
+            Log.e("WatchlistRepository", "API addMusicToWatchlist failed: ${e.message}")
         }
-
-        val crossRef = WatchlistMusicCrossRef(
-            watchlistId = watchlistId,
-            musicId = musicId
-        )
-        watchlistDao.addMusicToWatchlist(crossRef)
     }
 
     suspend fun removeMusicFromWatchlist(watchlistId: Long, musicId: String) {
         try {
             val response = apiService.removeSongFromWatchlist(watchlistId, musicId)
-
             if (response.isSuccessful) {
-                val crossRef = WatchlistMusicCrossRef(
-                    watchlistId = watchlistId,
-                    musicId = musicId
-                )
-                watchlistDao.removeMusicFromWatchlist(crossRef)
-                return
+                syncUserWatchlistsFromRemote()
             }
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "API removeMusicFromWatchlist failed: ${e.message}", e)
+            Log.e("WatchlistRepository", "API removeMusicFromWatchlist failed: ${e.message}")
         }
-
-        val crossRef = WatchlistMusicCrossRef(
-            watchlistId = watchlistId,
-            musicId = musicId
-        )
-        watchlistDao.removeMusicFromWatchlist(crossRef)
     }
 
-    fun getAllWatchlistsWithMusicForUser(userId: String): Flow<List<WatchlistWithMusic>> {
-        return watchlistDao.getAllWatchlistsWithMusicForUser(userId)
+    fun getAllWatchlistsWithMusicForUser(userId: String): Flow<List<Watchlist>> {
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            syncUserWatchlistsFromRemote()
+        }
+        return watchlists
     }
 
     suspend fun isMusicInUserWatchlist(userId: String, musicId: String): Boolean {
-        try {
+        return try {
             val response = apiService.checkSongInWatchlists(musicId)
-
             if (response.isSuccessful) {
-                val result = response.body()
-                if (result != null) {
-                    return result.inWatchlist
-                }
-            }
+                response.body()?.inWatchlist ?: false
+            } else false
         } catch (e: Exception) {
-            Log.e("WatchlistRepository", "API isMusicInUserWatchlist failed: ${e.message}", e)
+            Log.e("WatchlistRepository", "API isMusicInUserWatchlist failed: ${e.message}")
+            false
         }
-        val watchlists = watchlistDao.getWatchlistsByUserSync(userId)
-        if (watchlists.isEmpty()) return false
-
-        for (watchlist in watchlists) {
-            val count = watchlistDao.countMusicInWatchlist(watchlist.id, musicId)
-            if (count > 0) return true
-        }
-        return false
     }
 }

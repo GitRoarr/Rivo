@@ -4,86 +4,58 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.RequiresPermission
-import com.rivo.app.data.local.UserDao
-import com.rivo.app.data.model.ArtistDocument
-import com.rivo.app.data.model.UserType
-import com.rivo.app.data.model.VerificationRequest
+import com.rivo.app.data.model.User
 import com.rivo.app.data.model.VerificationStatus
+import com.rivo.app.data.remote.ApiService
+import com.rivo.app.data.remote.VerificationUpdateRequest
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import java.io.File
-import java.util.Date
-import java.util.UUID
 import javax.inject.Inject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import javax.inject.Singleton
 
 @Singleton
 class VerificationRepository @Inject constructor(
-    private val userDao: UserDao,
+    private val apiService: ApiService,
     private val notificationRepository: NotificationRepository,
     private val context: Context
 ) {
+    suspend fun submitVerificationRequest(userId: String): Result<Unit> {
+        return Result.failure(Exception("Use submitEnhancedVerification instead"))
+    }
 
-
-    suspend fun submitVerificationRequest(
-        artistId: String,
-        documentUrl: String,
-        additionalInfo: String? = null
-    ): Result<String> {
-        return try {
-            val user = userDao.getUserByEmail(artistId)
-                ?: return Result.failure(Exception("User not found"))
-
-            if (user.userType != UserType.ARTIST) {
-                return Result.failure(Exception("Only artists can request verification"))
-            }
-
-            val requestId = UUID.randomUUID().toString()
-            val now = Date()
-
-            val request = VerificationRequest(
-                id = requestId,
-                artistId = artistId,
-                documentUrl = documentUrl,
-                additionalInfo = additionalInfo,
-                status = VerificationStatus.PENDING,
-                submissionDate = now,
-                reviewDate = null,
-                reviewedBy = null,
-                rejectionReason = null,
-                artistName = user.fullName
-            )
-            userDao.insertVerificationRequest(request)
-
-            val updatedUser = user.copy(
-                verificationStatus = VerificationStatus.PENDING,
-                verificationRequestId = requestId,
-                verificationRequestDate = now
-            )
-            userDao.insertUser(updatedUser)
-
-            Result.success(requestId)
+    fun getPendingVerificationRequests(): Flow<List<User>> = flow {
+        try {
+            val response = apiService.getUsersAwaitingVerification()
+            if (response.isSuccessful) emit(response.body() ?: emptyList())
+            else emit(emptyList())
         } catch (e: Exception) {
-            Result.failure(e)
+            emit(emptyList())
         }
-    }
-
-    fun getPendingVerificationRequests(): Flow<List<VerificationRequest>> {
-        return userDao.getVerificationRequestsByStatus(VerificationStatus.PENDING)
-    }
+    }.flowOn(Dispatchers.IO)
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     suspend fun approveVerification(artistId: String): Boolean {
         return try {
-            val user = userDao.getUserByEmail(artistId) ?: return false
-
-            val updatedUser = user.copy(
-                verificationStatus = VerificationStatus.VERIFIED,
-                verificationApprovalDate = Date()
+            val response = apiService.updateVerificationStatus(
+                artistId,
+                VerificationUpdateRequest(status = "APPROVED")
             )
-            userDao.insertUser(updatedUser)
-
-            notificationRepository.showVerificationNotification(updatedUser, true)
-            true
+            if (response.isSuccessful) {
+                // Fetch user to show notification
+                val userResponse = apiService.getUserById(artistId)
+                if (userResponse.isSuccessful) {
+                    userResponse.body()?.let { notificationRepository.showVerificationNotification(it, true) }
+                }
+                true
+            } else false
         } catch (e: Exception) {
             false
         }
@@ -92,28 +64,30 @@ class VerificationRepository @Inject constructor(
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     suspend fun rejectVerification(artistId: String, reason: String): Boolean {
         return try {
-            val user = userDao.getUserByEmail(artistId) ?: return false
-
-            val updatedUser = user.copy(
-                verificationStatus = VerificationStatus.REJECTED,
-                verificationRejectionReason = reason
+            val response = apiService.updateVerificationStatus(
+                artistId,
+                VerificationUpdateRequest(status = "REJECTED", reason = reason)
             )
-            userDao.insertUser(updatedUser)
-
-            notificationRepository.showVerificationNotification(updatedUser, false)
-            true
+            if (response.isSuccessful) {
+                val userResponse = apiService.getUserById(artistId)
+                if (userResponse.isSuccessful) {
+                    userResponse.body()?.let { notificationRepository.showVerificationNotification(it, false) }
+                }
+                true
+            } else false
         } catch (e: Exception) {
             false
         }
     }
 
     suspend fun getVerificationStatus(artistId: String): VerificationStatus? {
-        return userDao.getUserByEmail(artistId)?.verificationStatus
-    }
-
-
-    suspend fun getVerificationRequest(artistId: String): VerificationRequest? {
-        return userDao.getVerificationRequestByArtistId(artistId)
+        return try {
+            val response = apiService.getVerificationStatus(artistId)
+            if (response.isSuccessful) VerificationStatus.valueOf(response.body()?.status ?: "PENDING")
+            else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun prepareFileForUpload(uri: Uri): File {
@@ -127,6 +101,11 @@ class VerificationRepository @Inject constructor(
         return tempFile
     }
 
+    fun getVerificationRequestsForAdmin(): Flow<List<User>> = getPendingVerificationRequests()
+
+    suspend fun getVerificationRequest(userId: String): com.rivo.app.data.model.VerificationRequest? {
+        return null
+    }
 
     suspend fun submitEnhancedVerification(
         userId: String,
@@ -141,91 +120,38 @@ class VerificationRepository @Inject constructor(
         proofOfArtistryUri: Uri
     ): Boolean {
         return try {
-            val idDocFile = prepareFileForUpload(idDocumentUri)
-            val idDocumentUrl = idDocFile.absolutePath
-
+            val idFile = prepareFileForUpload(idDocumentUri)
             val proofFile = prepareFileForUpload(proofOfArtistryUri)
-            val proofUrl = proofFile.absolutePath
-
-            val metadata = buildString {
-                append("## Artist Verification Details\n\n")
-                append("### Personal Information\n")
-                append("- Name: $artistName\n")
-                append("- Email: $email\n")
-                append("- Phone: $phoneNumber\n")
-                append("- Location: $location\n\n")
-
-                append("### Music Information\n")
-                append("- Genre: $primaryGenre\n")
-                append("- Bio: $artistBio\n\n")
-
-                append("### Social Media\n")
-                socialLinks.forEach { (platform, username) ->
-                    if (username.isNotBlank()) {
-                        append("- $platform: $username\n")
-                    }
-                }
-                append("\n")
-
-                append("### Documents\n")
-                append("- ID Document: $idDocumentUrl\n")
-                append("- Proof of Artistry: $proofUrl\n")
-            }
-
-            val result = submitVerificationRequest(
-                artistId = userId,
-                documentUrl = idDocumentUrl,
-                additionalInfo = metadata
+            
+            val idPart = MultipartBody.Part.createFormData(
+                "idDocument", idFile.name, idFile.asRequestBody("image/*".toMediaTypeOrNull())
             )
+            val proofPart = MultipartBody.Part.createFormData(
+                "proofOfArtistry", proofFile.name, proofFile.asRequestBody("image/*".toMediaTypeOrNull())
+            )
+            
+            val jsonLinks = JSONObject(socialLinks).toString()
 
-            if (result.isSuccess) {
-                val requestId = result.getOrNull()!!
+            val response = apiService.submitVerificationRequest(
+                userId = userId,
+                idDocument = idPart,
+                proofOfArtistry = proofPart,
+                artistName = artistName.toRequestBody("text/plain".toMediaTypeOrNull()),
+                email = email.toRequestBody("text/plain".toMediaTypeOrNull()),
+                phoneNumber = phoneNumber.toRequestBody("text/plain".toMediaTypeOrNull()),
+                location = location.toRequestBody("text/plain".toMediaTypeOrNull()),
+                primaryGenre = primaryGenre.toRequestBody("text/plain".toMediaTypeOrNull()),
+                artistBio = artistBio.toRequestBody("text/plain".toMediaTypeOrNull()),
+                socialLinks = jsonLinks.toRequestBody("application/json".toMediaTypeOrNull())
+            )
+            
+            idFile.delete()
+            proofFile.delete()
 
-                val user = userDao.getUserByEmail(userId)
-                if (user != null) {
-                    val updatedUser = user.copy(
-                        name = artistName,
-                        email = email,
-                        bio = artistBio,
-                        location = location,
-                        primaryGenre = primaryGenre,
-                        phoneNumber = phoneNumber,
-                        socialLinks = socialLinks
-                    )
-                    userDao.insertUser(updatedUser)
-                }
-
-                val idDocument = ArtistDocument(
-                    id = UUID.randomUUID().toString(),
-                    artistId = userId,
-                    documentType = "ID",
-                    documentUrl = idDocumentUrl,
-                    verificationRequestId = requestId
-                )
-                userDao.insertArtistDocument(idDocument)
-
-                val proofDocument = ArtistDocument(
-                    id = UUID.randomUUID().toString(),
-                    artistId = userId,
-                    documentType = "PROOF_OF_ARTISTRY",
-                    documentUrl = proofUrl,
-                    verificationRequestId = requestId
-                )
-                userDao.insertArtistDocument(proofDocument)
-            }
-
-            result.isSuccess
+            response.isSuccessful
         } catch (e: Exception) {
+            e.printStackTrace()
             false
         }
     }
-
-
-    fun getVerificationRequestsForAdmin(): Flow<List<VerificationRequest>> {
-        return userDao.getVerificationRequestsWithDetails()
-    }
-
-
-
-
 }

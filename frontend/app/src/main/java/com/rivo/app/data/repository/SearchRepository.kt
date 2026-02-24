@@ -1,31 +1,45 @@
 package com.rivo.app.data.repository
 
-import com.rivo.app.data.local.MusicDao
-import com.rivo.app.data.local.UserDao
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
-import com.rivo.app.data.model.UserType
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import android.util.Log
+import com.rivo.app.data.remote.ApiService
+
 @Singleton
 class SearchRepository @Inject constructor(
-    private val musicDao: MusicDao,
-    private val userDao: UserDao
+    private val apiService: ApiService
 ) {
-    fun searchMusic(query: String): Flow<List<Music>> =
-        musicDao.searchMusic(query)
+    private val _searchResults = MutableStateFlow<Pair<List<Music>, List<User>>>(emptyList<Music>() to emptyList<User>())
+    val searchResults: StateFlow<Pair<List<Music>, List<User>>> = _searchResults.asStateFlow()
 
-    fun searchArtists(query: String): Flow<List<User>> =
-        userDao.searchUsersByType(query, UserType.ARTIST)
-
-    fun searchAll(query: String): Flow<Pair<List<Music>, List<User>>> =
-        combine(searchMusic(query), searchArtists(query)) { music, artists ->
-            music to artists
+    fun searchAll(query: String): Flow<Pair<List<Music>, List<User>>> {
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            try {
+                if (query.isBlank()) {
+                    _searchResults.value = emptyList<Music>() to emptyList<User>()
+                    return@launch
+                }
+                val response = apiService.searchAll(query)
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    _searchResults.value = (body?.music ?: emptyList()) to (body?.artists ?: emptyList())
+                }
+            } catch (e: Exception) {
+                Log.e("SearchRepository", "Search failed: ${e.message}")
+            }
         }
-
+        return searchResults
+    }
 
     private val inMemoryHistory = mutableMapOf<String, MutableList<String>>()
 

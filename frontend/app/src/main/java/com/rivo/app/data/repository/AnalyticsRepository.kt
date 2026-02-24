@@ -1,6 +1,6 @@
 package com.rivo.app.data.repository
 
-import com.rivo.app.data.local.ArtistStatsDao
+import com.rivo.app.data.remote.ApiService
 import com.rivo.app.data.model.AnalyticsPeriod
 import com.rivo.app.data.model.ArtistAnalytics
 import kotlinx.coroutines.Dispatchers
@@ -13,125 +13,87 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 
+@Suppress("unused")
 @Singleton
 class AnalyticsRepository @Inject constructor(
-    private val artistStatsDao: ArtistStatsDao,
+    private val apiService: ApiService,
     private val musicRepository: MusicRepository
 ) {
-
     suspend fun getArtistAnalytics(
         artistId: String,
-        period: AnalyticsPeriod
+        @Suppress("UNUSED_PARAMETER") period: AnalyticsPeriod
     ): ArtistAnalytics? = withContext(Dispatchers.IO) {
-        artistStatsDao.getArtistAnalytics(artistId)
+        try {
+            val response = apiService.getArtistStats()
+            if (response.isSuccessful) {
+                val stats = response.body()
+                ArtistAnalytics(
+                    artistId = artistId,
+                    totalPlays = stats?.totalPlays ?: 0,
+                    lastUpdated = Date()
+                )
+            } else null
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun getAllArtistAnalytics(): Flow<List<ArtistAnalytics>> = flow {
-        emit(artistStatsDao.getAllArtistAnalytics())
+        // This might be tricky if we don't have an endpoint for ALL artists analytics.
+        // For now, return empty or based on available stats.
+        emit(emptyList<ArtistAnalytics>())
     }.flowOn(Dispatchers.IO)
-
-    suspend fun getTopSongs(
-        artistId: String,
-        period: AnalyticsPeriod
-    ): List<Pair<String, Int>> = withContext(Dispatchers.IO) {
-        // Since topSongs map was removed, return empty list or integrate with real data
-        emptyList()
-    }
-
-    suspend fun getListenerDemographics(
-        artistId: String
-    ): Map<String, Float> = withContext(Dispatchers.IO) {
-        emptyMap()
-    }
-
-
-    suspend fun getPlayCountByDay(
-        artistId: String,
-        period: AnalyticsPeriod
-    ): Map<String, Int> = withContext(Dispatchers.IO) {
-        emptyMap()
-    }
 
     suspend fun recordPlay(
         musicId: String,
-        artistId: String
+        @Suppress("UNUSED_PARAMETER") artistId: String
     ) = withContext(Dispatchers.IO) {
         musicRepository.incrementPlayCount(musicId)
-
-        val analytics = artistStatsDao.getArtistAnalytics(artistId)
-        if (analytics != null) {
-            val updated = analytics.copy(
-                totalPlays = analytics.totalPlays + 1,
-                lastUpdated = Date()
-            )
-            artistStatsDao.updateArtistAnalytics(updated)
-        } else {
-            artistStatsDao.insertArtistAnalytics(
-                ArtistAnalytics(
-                    artistId = artistId,
-                    totalPlays = 1,
-                    lastUpdated = Date()
-                )
-            )
-        }
     }
 
     suspend fun recordPlaylistAdd(
-        artistId: String
+        @Suppress("UNUSED_PARAMETER") artistId: String
     ) = withContext(Dispatchers.IO) {
-        val analytics = artistStatsDao.getArtistAnalytics(artistId)
-        if (analytics != null) {
-            val updated = analytics.copy(
-                playlistAdds = analytics.playlistAdds + 1,
-                lastUpdated = Date()
-            )
-            artistStatsDao.updateArtistAnalytics(updated)
-        } else {
-            artistStatsDao.insertArtistAnalytics(
-                ArtistAnalytics(
-                    artistId = artistId,
-                    playlistAdds = 1,
-                    lastUpdated = Date()
-                )
-            )
-        }
+        // Logic to record playlist add via API if available
     }
 
-
     suspend fun recordWatchlistSave(
-        artistId: String
+        @Suppress("UNUSED_PARAMETER") artistId: String
     ) = withContext(Dispatchers.IO) {
-        val analytics = artistStatsDao.getArtistAnalytics(artistId)
-        if (analytics != null) {
-            val updated = analytics.copy(
-                watchlistSaves = analytics.watchlistSaves + 1,
-                lastUpdated = Date()
-            )
-            artistStatsDao.updateArtistAnalytics(updated)
-        } else {
-            artistStatsDao.insertArtistAnalytics(
-                ArtistAnalytics(
-                    artistId = artistId,
-                    watchlistSaves = 1,
-                    lastUpdated = Date()
-                )
-            )
-        }
+        // Logic to record watchlist save via API if available
     }
 
     suspend fun getAppAnalytics(): Map<String, Any> = withContext(Dispatchers.IO) {
-        mapOf(
-            "totalUsers" to 0,
-            "totalArtists" to 0,
-            "totalTracks" to 0,
-            "totalPlays" to 0
-        )
+        try {
+            val response = apiService.getAdminStats()
+            if (response.isSuccessful) {
+                val stats = response.body()
+                mapOf(
+                    "totalUsers" to (stats?.totalUsers ?: 0),
+                    "totalArtists" to (stats?.totalArtists ?: 0),
+                    "totalTracks" to (stats?.totalMusic ?: 0),
+                    "totalPlays" to (stats?.totalPlays ?: 0)
+                )
+            } else emptyMap()
+        } catch (_: Exception) {
+            emptyMap()
+        }
     }
 
     suspend fun getAnalyticsForPeriod(
         artistId: String,
         period: AnalyticsPeriod
-    ): ArtistAnalytics? = withContext(Dispatchers.IO) {
-        artistStatsDao.getArtistAnalytics(artistId)
+    ): ArtistAnalytics? = getArtistAnalytics(artistId, period)
+
+    suspend fun getTopSongs(artistId: String, period: AnalyticsPeriod): List<Pair<String, Int>> {
+        return emptyList()
+    }
+
+    suspend fun getListenerDemographics(artistId: String): Map<String, Float> {
+        return emptyMap()
+    }
+
+    suspend fun getPlayCountByDay(artistId: String, period: AnalyticsPeriod): Map<String, Int> {
+        return emptyMap()
     }
 }
