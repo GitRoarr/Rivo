@@ -204,9 +204,12 @@ class FollowViewModel @Inject constructor(
             if (currentUser != null) {
                 followRepository.followArtist(artistId)
 
-                // Update cache
+                // Update follow status cache
                 getOrCreateFollowStatusFlow(artistId).value = true
-                getOrCreateFollowerCountFlow(artistId).value = (getOrCreateFollowerCountFlow(artistId).value) + 1
+
+                // Re-sync the REAL count from backend (prevents duplicate counting)
+                val realCount = followRepository.getFollowersCount(artistId)
+                getOrCreateFollowerCountFlow(artistId).value = realCount
 
                 // Refresh followed artists list
                 loadFollowedArtists(currentUser.email)
@@ -227,9 +230,12 @@ class FollowViewModel @Inject constructor(
             if (currentUser != null) {
                 followRepository.unfollowArtist(artistId)
 
-                // Update cache
+                // Update follow status cache
                 getOrCreateFollowStatusFlow(artistId).value = false
-                getOrCreateFollowerCountFlow(artistId).value = (getOrCreateFollowerCountFlow(artistId).value - 1).coerceAtLeast(0)
+
+                // Re-sync the REAL count from backend (prevents count drift)
+                val realCount = followRepository.getFollowersCount(artistId)
+                getOrCreateFollowerCountFlow(artistId).value = realCount
 
                 // Refresh followed artists list
                 loadFollowedArtists(currentUser.email)

@@ -53,6 +53,7 @@ fun LibraryScreen(
     val userPlaylists by libraryViewModel.userPlaylists.collectAsState()
     val favoriteMusic by musicViewModel.favoriteMusic.collectAsState()
     val isLoading by libraryViewModel.isLoading.collectAsState()
+    val error by libraryViewModel.error.collectAsState()
     
     var selectedTab by remember { mutableStateOf(LibraryTab.PLAYLISTS) }
     var selectedPlaylistId by remember { mutableStateOf<Long?>(null) }
@@ -116,27 +117,89 @@ fun LibraryScreen(
                         .fillMaxSize()
                         .padding(top = 16.dp)
                 ) {
-                    if (isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = RivoPink)
-                        }
-                    } else {
-                        AnimatedContent(
-                            targetState = selectedTab,
-                            transitionSpec = {
-                                slideInHorizontally { it } + fadeIn() togetherWith
-                                slideOutHorizontally { -it } + fadeOut()
+                    when {
+                        isLoading -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = RivoPink)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        "Loading your library…",
+                                        color = LightGray,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                             }
-                        ) { tab ->
-                            when (tab) {
-                                LibraryTab.PLAYLISTS -> PlaylistsContent(
-                                    playlists = userPlaylists,
-                                    onPlaylistClick = { selectedPlaylistId = it }
-                                )
-                                LibraryTab.LIKED_SONGS -> LikedSongsContent(
-                                    songs = favoriteMusic,
-                                    onMusicClick = onMusicClick
-                                )
+                        }
+                        error != null -> {
+                            // Error state with retry
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CloudOff,
+                                        contentDescription = null,
+                                        tint = LightGray,
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        "Couldn't load your library",
+                                        color = White,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Check your connection and try again",
+                                        color = LightGray,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Button(
+                                        onClick = {
+                                            libraryViewModel.clearError()
+                                            libraryViewModel.loadUserPlaylists(userId)
+                                            musicViewModel.loadFavorites()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = RivoPink
+                                        ),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Retry", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                        else -> {
+                            AnimatedContent(
+                                targetState = selectedTab,
+                                transitionSpec = {
+                                    slideInHorizontally { it } + fadeIn() togetherWith
+                                    slideOutHorizontally { -it } + fadeOut()
+                                }
+                            ) { tab ->
+                                when (tab) {
+                                    LibraryTab.PLAYLISTS -> PlaylistsContent(
+                                        playlists = userPlaylists,
+                                        onPlaylistClick = { selectedPlaylistId = it }
+                                    )
+                                    LibraryTab.LIKED_SONGS -> LikedSongsContent(
+                                        songs = favoriteMusic,
+                                        onMusicClick = onMusicClick
+                                    )
+                                }
                             }
                         }
                     }

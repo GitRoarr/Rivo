@@ -61,6 +61,14 @@ fun ArtistProfileScreen(
     
     val scrollState = rememberScrollState()
 
+    LaunchedEffect(user?.id) {
+        user?.id?.let { id ->
+            followViewModel.loadFollowersCount(id)
+            followViewModel.loadFollowingCount(id)
+            followViewModel.loadFollowers(id)
+        }
+    }
+
     // Image handling
     val profilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -232,7 +240,7 @@ fun ArtistProfileScreen(
                 }
                 
                 Text(
-                    text = "${followersCount} Monthly Listeners",
+                    text = "${artistAnalytics?.monthlyListeners ?: followersCount} Monthly Listeners",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = LightGray,
                         fontWeight = FontWeight.SemiBold
@@ -278,7 +286,7 @@ fun ArtistProfileScreen(
                         ArtistDivider(Modifier.align(Alignment.CenterVertically))
                         ArtistStatItem(count = artistAnalytics?.totalPlays?.toString() ?: "0", label = "Plays")
                         ArtistDivider(Modifier.align(Alignment.CenterVertically))
-                        ArtistStatItem(count = followersCount.toString(), label = "Followers")
+                        ArtistStatItem(count = (artistAnalytics?.followersCount ?: followersCount).toString(), label = "Followers")
                     }
                 }
             }

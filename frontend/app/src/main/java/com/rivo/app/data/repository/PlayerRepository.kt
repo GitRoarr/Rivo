@@ -197,10 +197,6 @@ class PlayerRepository @Inject constructor(
         }
     }
 
-
-
-
-
     fun playNext() {
         if (_queue.value.isEmpty()) return
 
@@ -216,15 +212,22 @@ class PlayerRepository @Inject constructor(
         playQueueItem(nextIndex)
     }
 
-
     private fun playQueueItem(index: Int) {
         if (index in _queue.value.indices) {
             playMusic(_queue.value[index])
         }
     }
 
-
-
+    fun playPrevious() {
+        if (_queue.value.isEmpty()) return
+        val prevIndex = if (_queueIndex.value > 0) {
+            _queueIndex.value - 1
+        } else {
+            _queue.value.size - 1 // wrap around
+        }
+        _queueIndex.value = prevIndex
+        playQueueItem(prevIndex)
+    }
 
     fun release() {
         mediaPlayer?.release()

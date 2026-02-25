@@ -49,15 +49,16 @@ class WatchlistRepository @Inject constructor(
             try {
                 val response = apiService.getWatchlistById(watchlistId)
                 if (response.isSuccessful) {
-                    val watchlist = response.body()
-                    if (watchlist != null) {
-                        val musicList = watchlist.songs.mapNotNull { songId ->
-                            try {
-                                val musicResponse = apiService.getMusicById(songId)
-                                if (musicResponse.isSuccessful) musicResponse.body() else null
-                            } catch (e: Exception) { null }
-                        }
-                        flow.value = WatchlistWithMusic(watchlist = watchlist, musicList = musicList)
+                    val details = response.body()
+                    if (details != null) {
+                        val watchlist = Watchlist(
+                            id = details.id,
+                            name = details.name,
+                            description = details.description,
+                            createdBy = details.createdBy,
+                            songs = details.songs.map { it.id }
+                        )
+                        flow.value = WatchlistWithMusic(watchlist = watchlist, musicList = details.songs)
                     }
                 }
             } catch (e: Exception) {

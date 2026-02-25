@@ -40,6 +40,18 @@ class LibraryViewModel @Inject constructor(
     private val _playlistWithMusicList = mutableStateListOf<PlaylistWithMusic>()
     val playlistWithMusicList: List<PlaylistWithMusic> = _playlistWithMusicList
 
+    private val _currentPlaylistWithMusic = MutableStateFlow<PlaylistWithMusic?>(null)
+    val currentPlaylistWithMusic: StateFlow<PlaylistWithMusic?> = _currentPlaylistWithMusic.asStateFlow()
+
+    fun loadPlaylistWithMusic(playlistId: Long) {
+        _currentPlaylistWithMusic.value = null
+        viewModelScope.launch {
+            playlistRepository.getPlaylistWithMusic(playlistId).collect {
+                _currentPlaylistWithMusic.value = it
+            }
+        }
+    }
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -53,21 +65,43 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                playlistRepository.syncUserPlaylistsFromRemote()
+                // Sync with remote - use timeout to prevent infinite hang
+                try {
+                    kotlinx.coroutines.withTimeoutOrNull(10_000L) {
+                        playlistRepository.syncUserPlaylistsFromRemote()
+                    } ?: Log.w("LibraryViewModel", "Sync playlists timed out, using cached data")
+                } catch (e: Exception) {
+                    Log.w("LibraryViewModel", "Sync failed, using cached data: ${e.message}")
+                }
 
-                playlistRepository.getPlaylistsByUser(userId).collectLatest { playlists ->
-                    _userPlaylists.value = playlists
-                    _playlistWithMusicList.clear()
-                    playlists.forEach { playlist ->
-                        playlistRepository.getPlaylistWithMusic(playlist.id).collect { pwm ->
-                            pwm?.let { _playlistWithMusicList.add(it) }
+                // Get playlists - use first() for a one-shot fetch instead of infinite collect
+                val playlists = try {
+                    kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                        playlistRepository.getPlaylistsByUser(userId).first()
+                    } ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("LibraryViewModel", "Failed to get playlists: ${e.message}")
+                    emptyList()
+                }
+
+                _userPlaylists.value = playlists
+                _playlistWithMusicList.clear()
+
+                // Fetch each playlist's music with timeout
+                playlists.forEach { playlist ->
+                    try {
+                        val pwm = kotlinx.coroutines.withTimeoutOrNull(6_000L) {
+                            playlistRepository.getPlaylistWithMusic(playlist.id).first { it != null }
                         }
+                        pwm?.let { _playlistWithMusicList.add(it) }
+                    } catch (e: Exception) {
+                        Log.w("LibraryViewModel", "Skipped playlist ${playlist.id}: ${e.message}")
                     }
-                    _isLoading.value = false
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading playlists: ${e.message}", e)
                 _error.value = "Failed to load playlists: ${e.message}"
+            } finally {
                 _isLoading.value = false
             }
         }
@@ -94,28 +128,46 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                watchlistRepository.syncUserWatchlistsFromRemote()
+                // Sync with remote - use timeout to prevent infinite hang
+                try {
+                    kotlinx.coroutines.withTimeoutOrNull(10_000L) {
+                        watchlistRepository.syncUserWatchlistsFromRemote()
+                    } ?: Log.w("LibraryViewModel", "Sync watchlists timed out, using cached data")
+                } catch (e: Exception) {
+                    Log.w("LibraryViewModel", "Sync watchlists failed: ${e.message}")
+                }
 
-                watchlistRepository.getWatchlistsByUser(userId).collectLatest { watchlists ->
-                    _userWatchlists.value = watchlists
+                // Get watchlists - use first() for one-shot fetch
+                val watchlists = try {
+                    kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                        watchlistRepository.getWatchlistsByUser(userId).first()
+                    } ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("LibraryViewModel", "Failed to get watchlists: ${e.message}")
+                    emptyList()
+                }
 
-                    // If we have no watchlists but should have one, create a default
-                    if (watchlists.isEmpty()) {
-                        Log.d("LibraryViewModel", "Creating default watchlist for user: $userId")
+                _userWatchlists.value = watchlists
+
+                // If we have no watchlists, create a default one
+                if (watchlists.isEmpty()) {
+                    Log.d("LibraryViewModel", "Creating default watchlist for user: $userId")
+                    try {
                         createLibraryItem("My Watchlist", "Favorite songs", userId, false)
-                        // Wait a bit and try to load again
-                        delay(800) // Increased delay to ensure DB operation completes
-                        watchlistRepository.getWatchlistsByUser(userId).collect {
-                            _userWatchlists.value = it
-                            Log.d("LibraryViewModel", "Reloaded watchlists, count: ${it.size}")
-                        }
+                        delay(800)
+                        val reloaded = kotlinx.coroutines.withTimeoutOrNull(5_000L) {
+                            watchlistRepository.getWatchlistsByUser(userId).first()
+                        } ?: emptyList()
+                        _userWatchlists.value = reloaded
+                        Log.d("LibraryViewModel", "Reloaded watchlists, count: ${reloaded.size}")
+                    } catch (e: Exception) {
+                        Log.w("LibraryViewModel", "Failed to create default watchlist: ${e.message}")
                     }
-
-                    _isLoading.value = false
                 }
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading watchlists: ${e.message}", e)
                 _error.value = "Failed to load watchlists: ${e.message}"
+            } finally {
                 _isLoading.value = false
             }
         }
@@ -129,18 +181,20 @@ class LibraryViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 if (isPlaylist) {
-                    playlistRepository.getPlaylistWithMusic(libraryItemId).collect {
-                        _currentLibraryItem.value = it?.let { LibraryItem.PlaylistItem(it) }
+                    val result = kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                        playlistRepository.getPlaylistWithMusic(libraryItemId).first()
                     }
+                    _currentLibraryItem.value = result?.let { LibraryItem.PlaylistItem(it) }
                 } else {
-                    watchlistRepository.getWatchlistWithMusic(libraryItemId).collect {
-                        _currentLibraryItem.value = it?.let { LibraryItem.WatchlistItem(it) }
+                    val result = kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                        watchlistRepository.getWatchlistWithMusic(libraryItemId).first()
                     }
+                    _currentLibraryItem.value = result?.let { LibraryItem.WatchlistItem(it) }
                 }
-                _isLoading.value = false
             } catch (e: Exception) {
                 Log.e("LibraryViewModel", "Error loading library item: ${e.message}", e)
                 _error.value = "Failed to load item: ${e.message}"
+            } finally {
                 _isLoading.value = false
             }
         }
@@ -227,7 +281,10 @@ class LibraryViewModel @Inject constructor(
                 if (playlist != null) {
                     playlistRepository.addMusicToPlaylist(libraryItemId, music.id)
 
-                    // After adding music, reload playlists
+                    // Refresh details immediately for the current view
+                    loadPlaylistWithMusic(libraryItemId)
+
+                    // After adding music, reload playlists list
                     val userId = playlist.createdBy ?: ""
                     loadUserPlaylists(userId)
                     _snackBarMessage.value = "Added to ${playlist.name}"
@@ -260,6 +317,9 @@ class LibraryViewModel @Inject constructor(
             try {
                 if (isPlaylist) {
                     playlistRepository.removeMusicFromPlaylist(libraryItemId, musicId)
+
+                    // Refresh details immediately
+                    loadPlaylistWithMusic(libraryItemId)
 
                     val userId = _userPlaylists.value.find { it.id == libraryItemId }?.createdBy
 

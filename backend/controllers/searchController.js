@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler")
 const Music = require("../models/musicModel")
 const User = require("../models/userModel")
+const Follow = require("../models/followModel")
 
 // @desc    Search music and artists
 // @route   GET /api/search
@@ -12,22 +13,36 @@ const searchAll = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "Search query is required" })
     }
 
+    const regex = new RegExp(query, "i")
+
+    // Search for music
     const music = await Music.find({
         isApproved: true,
         $or: [
-            { title: { $regex: query, $options: "i" } },
-            { genre: { $regex: query, $options: "i" } },
-            { album: { $regex: query, $options: "i" } }
+            { title: regex },
+            { genre: regex },
+            { album: regex },
+            { artistName: regex }
         ]
-    }).limit(10)
+    }).limit(20).lean()
 
-    const artists = await User.find({
+    // Search for artists
+    let artists = await User.find({
         userType: "ARTIST",
         $or: [
-            { name: { $regex: query, $options: "i" } },
-            { fullName: { $regex: query, $options: "i" } }
+            { name: regex },
+            { fullName: regex },
+            { bio: regex }
         ]
-    }).select("-password").limit(10)
+    }).select("-password").limit(10).lean()
+
+    // Attach follower counts to artists
+    artists = await Promise.all(
+        artists.map(async (artist) => {
+            const followerCount = await Follow.countDocuments({ followingId: artist._id })
+            return { ...artist, followerCount }
+        })
+    )
 
     res.json({ music, artists })
 })

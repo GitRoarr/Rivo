@@ -7,6 +7,8 @@ import com.rivo.app.data.model.User
 import com.rivo.app.data.repository.ConnectivityRepository
 import com.rivo.app.data.repository.MusicRepository
 import com.rivo.app.data.repository.SearchRepository
+import android.util.Log
+import com.rivo.app.data.repository.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,10 +18,9 @@ import javax.inject.Inject
 class SearchViewModel @Inject constructor(
     private val searchRepository: SearchRepository,
     private val musicRepository: MusicRepository,
-    private val connectivityRepository: ConnectivityRepository
+    private val connectivityRepository: ConnectivityRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
-
-    private var userId: String? = null
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -45,9 +46,23 @@ class SearchViewModel @Inject constructor(
     private val _snackbarMessage = MutableSharedFlow<String?>(replay = 0)
     val snackbarMessage: SharedFlow<String?> = _snackbarMessage.asSharedFlow()
 
+    private var lastSearchedQuery: String? = null
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     init {
         observeConnectivity()
         loadCachedMusic()
+        loadRecentSearches()
+
+        // Implement debouncing for search query
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(600)
+                .filter { it.isNotBlank() && it != lastSearchedQuery }
+                .collectLatest { query ->
+                    performSearch(query)
+                }
+        }
     }
 
     fun showSnackbar(message: String) {
@@ -55,11 +70,6 @@ class SearchViewModel @Inject constructor(
             _snackbarMessage.emit(message)
         }
     }
-
-    fun onSnackbarShown() {
-    }
-
-
 
     private fun observeConnectivity() {
         viewModelScope.launch {
@@ -79,6 +89,15 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    fun onQueryChange(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) {
+            clearResults()
+            searchJob?.cancel()
+            lastSearchedQuery = null
+        }
+    }
+
     fun search(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) {
@@ -86,17 +105,28 @@ class SearchViewModel @Inject constructor(
             clearResults()
             return
         }
+        if (query != lastSearchedQuery) {
+            performSearch(query)
+        }
+    }
 
+    private fun performSearch(query: String) {
+        if (query == lastSearchedQuery && !musicResults.value.isEmpty()) return
+        
+        searchJob?.cancel()
+        lastSearchedQuery = query
         _isSearching.value = true
-        viewModelScope.launch {
+        searchJob = viewModelScope.launch {
             try {
                 if (_isOfflineMode.value) {
                     searchOffline(query)
                 } else {
                     searchOnline(query)
                 }
-            } catch (_: Throwable) {
-                // fallback to offline mode if network fails
+
+                saveToRecentSearches(query)
+            } catch (e: Exception) {
+                Log.e("SearchViewModel", "Search failed: ${e.message}")
                 if (!_isOfflineMode.value) {
                     _isOfflineMode.value = true
                     searchOffline(query)
@@ -109,17 +139,17 @@ class SearchViewModel @Inject constructor(
     }
 
     private suspend fun searchOnline(query: String) {
-        searchRepository.searchAll(query)
-            .firstOrNull()
-            ?.let { (music, artists) ->
+        val result = searchRepository.searchAll(query)
+        result.fold(
+            onSuccess = { (music, artists) ->
                 _musicResults.value = music
                 _artistResults.value = artists
+            },
+            onFailure = { e ->
+                Log.e("SearchViewModel", "Online search failed: ${e.message}")
+                searchOffline(query)
             }
-
-        userId?.let { id ->
-            searchRepository.saveSearchQuery(id, query)
-            loadRecentSearches()
-        }
+        )
     }
 
     private fun searchOffline(query: String) {
@@ -130,11 +160,14 @@ class SearchViewModel @Inject constructor(
                     m.album?.lowercase()?.contains(q) == true ||
                     m.genre?.lowercase()?.contains(q) == true
         }
-        _artistResults.value = emptyList()
+        _artistResults.value = emptyList() // Artists not usually cached for offline
+    }
 
+    private fun saveToRecentSearches(query: String) {
         viewModelScope.launch {
-            userId?.let { id ->
-                searchRepository.saveSearchQuery(id, query)
+            val userId = sessionManager.getCurrentUserId()
+            if (userId.isNotBlank()) {
+                searchRepository.saveSearchQuery(userId, query)
                 loadRecentSearches()
             }
         }
@@ -142,16 +175,18 @@ class SearchViewModel @Inject constructor(
 
     private fun loadRecentSearches() {
         viewModelScope.launch {
-            userId?.let { id ->
-                _recentSearches.value = searchRepository.getRecentSearches(id)
+            val userId = sessionManager.getCurrentUserId()
+            if (userId.isNotBlank()) {
+                _recentSearches.value = searchRepository.getRecentSearches(userId)
             }
         }
     }
 
     fun clearRecentSearches() {
         viewModelScope.launch {
-            userId?.let { id ->
-                searchRepository.clearRecentSearches(id)
+            val userId = sessionManager.getCurrentUserId()
+            if (userId.isNotBlank()) {
+                searchRepository.clearRecentSearches(userId)
                 _recentSearches.value = emptyList()
             }
         }
@@ -163,7 +198,6 @@ class SearchViewModel @Inject constructor(
         _searchQuery.value = ""
         _musicResults.value = emptyList()
         _artistResults.value = emptyList()
+        _isSearching.value = false
     }
-
-
 }

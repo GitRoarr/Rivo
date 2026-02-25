@@ -51,7 +51,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
 
 const getPlaylistById = asyncHandler(async (req, res) => {
-    const playlist = await Playlist.findOne({ id: req.params.id })
+    const playlist = await Playlist.findOne({ id: req.params.id }).populate("songs")
 
     if (!playlist) {
         res.status(404)

@@ -27,11 +27,19 @@ const getExploreData = asyncHandler(async (req, res) => {
 
     let featuredArtists = []
     if (featuredArtistEntries.length > 0) {
-        const artistIds = featuredArtistEntries.map(entry => entry.contentId).filter(id => id)
-        const pinnedArtists = await User.find({ _id: { $in: artistIds } }).select("-password")
+        const artistIds = featuredArtistEntries
+            .map(entry => entry.contentId)
+            .filter(id => id)
 
-        // Mantain the order from FeaturedContent
-        featuredArtists = artistIds.map(id => pinnedArtists.find(a => a._id.toString() === id.toString())).filter(a => a)
+        // Remove duplicate artist ids while preserving order
+        const uniqueArtistIds = [...new Set(artistIds.map(id => id.toString()))]
+
+        const pinnedArtists = await User.find({ _id: { $in: uniqueArtistIds } }).select("-password")
+
+        // Maintain the order from FeaturedContent using the de-duplicated ids
+        featuredArtists = uniqueArtistIds
+            .map(id => pinnedArtists.find(a => a._id.toString() === id))
+            .filter(a => a)
     }
 
     // Fallback/Fill up to 10 artists if needed
@@ -47,7 +55,14 @@ const getExploreData = asyncHandler(async (req, res) => {
         featuredArtists = [...featuredArtists, ...otherArtists]
     }
 
-    // Attach follower counts to artists
+    const seenArtistIds = new Set()
+    featuredArtists = featuredArtists.filter(artist => {
+        const idStr = artist._id.toString()
+        if (seenArtistIds.has(idStr)) return false
+        seenArtistIds.add(idStr)
+        return true
+    })
+
     featuredArtists = await Promise.all(
         featuredArtists.map(async (artist) => {
             const followerCount = await Follow.countDocuments({ followingId: artist._id })
@@ -55,23 +70,13 @@ const getExploreData = asyncHandler(async (req, res) => {
         })
     )
 
-    // 4. Featured Music / Recommendations: Prioritize pinned songs from FeaturedContent
     const featuredSongEntries = await FeaturedContent.find({ type: "SONG", isActive: true }).sort({ order: 1 })
 
     let featuredMusic = []
     if (featuredSongEntries.length > 0) {
         const songIds = featuredSongEntries.map(entry => entry.contentId).filter(id => id)
-        featuredMusic = await Music.find({ _id: { $in: songIds }, isApproved: true })
-    }
 
-    // Fallback/Sample if no pinned songs OR less than 5
-    if (featuredMusic.length < 5) {
-        const existingIds = featuredMusic.map(m => m._id.toString())
-        const randomSample = await Music.aggregate([
-            { $match: { isApproved: true, _id: { $nin: existingIds.map(id => mongoose.Types.ObjectId(id)) } } },
-            { $sample: { size: 5 - featuredMusic.length } }
-        ])
-        featuredMusic = [...featuredMusic, ...randomSample]
+        featuredMusic = await Music.find({ _id: { $in: songIds }, isApproved: true })
     }
 
     // 5. Banners: Purely admin driven with logical fallbacks

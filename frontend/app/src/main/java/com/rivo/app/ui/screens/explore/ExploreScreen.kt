@@ -95,11 +95,15 @@ fun ExploreScreen(
                     item(span = { GridItemSpan(2) }) {
                         Column {
                             SectionLabel("Featured Artists")
+                            // De-duplicate artists by ID to prevent duplicates
+                            val uniqueArtists = remember(artists) {
+                                artists.distinctBy { it.id }
+                            }
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 24.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                items(artists) { artist ->
+                                items(uniqueArtists, key = { it.id }) { artist ->
                                     ArtistCircleItem(artist, onClick = { onArtistClick(artist) })
                                 }
                             }

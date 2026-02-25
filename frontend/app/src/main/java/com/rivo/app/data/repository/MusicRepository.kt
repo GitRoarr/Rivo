@@ -90,11 +90,22 @@ class MusicRepository @Inject constructor(
         }
     }
 
-    suspend fun incrementPlayCountIfFirstTime(musicId: String) {
-        try {
-            apiService.incrementMusicPlay(musicId)
+    suspend fun incrementPlayCountIfFirstTime(musicId: String): Boolean {
+        return try {
+            val userId = sessionManager.getCurrentUser().userId.takeIf { it.isNotBlank() }
+            val request = com.rivo.app.data.remote.IncrementPlayRequest(userId = userId)
+            val response = apiService.incrementMusicPlay(musicId, request)
+            if (response.isSuccessful) {
+                val counted = response.body()?.counted ?: false
+                Log.d("MusicRepository", "Play count increment result: counted=$counted")
+                counted
+            } else {
+                Log.e("MusicRepository", "Failed to increment play count: ${response.code()}")
+                false
+            }
         } catch (e: Exception) {
             Log.e("MusicRepository", "Failed to sync play count: ${e.message}")
+            false
         }
     }
 
@@ -166,7 +177,9 @@ class MusicRepository @Inject constructor(
 
     suspend fun incrementPlayCount(musicId: String) {
         try {
-            apiService.incrementMusicPlay(musicId)
+            val userId = sessionManager.getCurrentUser().userId.takeIf { it.isNotBlank() }
+            val request = com.rivo.app.data.remote.IncrementPlayRequest(userId = userId)
+            apiService.incrementMusicPlay(musicId, request)
         } catch (e: Exception) {
             Log.e("MusicRepository", "Failed to increment play count: ${e.message}")
         }

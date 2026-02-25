@@ -63,6 +63,13 @@ class MusicViewModel @Inject constructor(
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
+    // Playback queue - the actual list of songs being played through
+    private val _playQueue = MutableStateFlow<List<Music>>(emptyList())
+    val playQueue: StateFlow<List<Music>> = _playQueue.asStateFlow()
+
+    private val _queueIndex = MutableStateFlow(-1)
+    val queueIndex: StateFlow<Int> = _queueIndex.asStateFlow()
+
     // Add error state
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -148,10 +155,22 @@ class MusicViewModel @Inject constructor(
     private fun loadAllMusic() {
         viewModelScope.launch {
             try {
+                // Ensure we actually fetch music from remote
+                musicRepository.refreshMusic()
                 musicRepository.getAllMusic().collectLatest { _allMusic.value = it }
             } catch (e: Exception) {
                 Log.e("MusicViewModel", "Error loading all music: ${e.message}")
                 _error.value = "Failed to load music: ${e.message}"
+            }
+        }
+    }
+
+    fun refreshMusic() {
+        viewModelScope.launch {
+            try {
+                musicRepository.refreshMusic()
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Refresh failed: ${e.message}")
             }
         }
     }
@@ -245,9 +264,36 @@ class MusicViewModel @Inject constructor(
             _error.value = null
             try {
                 Log.d("MusicViewModel", "Loading music with ID: $musicId")
+                
+                // Ensure allMusic is loaded before building queue
+                if (_allMusic.value.isEmpty()) {
+                    try {
+                        musicRepository.refreshMusic()
+                    } catch (e: Exception) {
+                        Log.e("MusicViewModel", "Failed to refresh music list: ${e.message}")
+                    }
+                }
+                
                 val music = musicRepository.getMusicById(musicId)
                 if (music != null) {
                     _currentMusic.value = music
+
+                    // Build queue from allMusic if not already set
+                    if (_playQueue.value.isEmpty() && _allMusic.value.isNotEmpty()) {
+                        val idx = _allMusic.value.indexOfFirst { it.id == musicId }
+                        _playQueue.value = _allMusic.value
+                        _queueIndex.value = if (idx >= 0) idx else 0
+                        Log.d("MusicViewModel", "Queue built from allMusic: ${_allMusic.value.size} tracks, starting at index ${_queueIndex.value}")
+                    } else if (_playQueue.value.isEmpty() && _allMusic.value.isEmpty()) {
+                        // Last resort: create a single-item queue
+                        _playQueue.value = listOf(music)
+                        _queueIndex.value = 0
+                        Log.d("MusicViewModel", "Queue set to single track: ${music.title}")
+                    } else if (_playQueue.value.isNotEmpty()) {
+                        // Update queue index to reflect current track
+                        val idx = _playQueue.value.indexOfFirst { it.id == musicId }
+                        if (idx >= 0) _queueIndex.value = idx
+                    }
 
                     playMusic(music)
                 } else {
@@ -276,8 +322,14 @@ class MusicViewModel @Inject constructor(
                 return
             }
 
-            exoPlayer.stop()
-            exoPlayer.clearMediaItems()
+            // Safely stop and clear — catch dead thread errors
+            try {
+                exoPlayer.stop()
+                exoPlayer.clearMediaItems()
+            } catch (e: IllegalStateException) {
+                Log.w("MusicViewModel", "ExoPlayer in bad state during stop/clear: ${e.message}")
+                // Player thread may be dead — still try to set media and prepare
+            }
 
             val playableUri = SimpleMediaAccessHelper.getPlayableUri(context, music.path)
 
@@ -293,12 +345,24 @@ class MusicViewModel @Inject constructor(
                 .setMediaId(music.id)
                 .build()
 
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
+            try {
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+            } catch (e: IllegalStateException) {
+                Log.e("MusicViewModel", "ExoPlayer thread is dead, cannot play: ${e.message}")
+                _error.value = "Player error — please restart the app"
+                _isLoading.value = false
+                return
+            }
 
             viewModelScope.launch {
                 delay(800)
-                exoPlayer.play()
+                try {
+                    exoPlayer.play()
+                } catch (e: IllegalStateException) {
+                    Log.e("MusicViewModel", "ExoPlayer cannot play: ${e.message}")
+                    _error.value = "Player error — please restart the app"
+                }
                 _isLoading.value = false
             }
 
@@ -478,48 +542,86 @@ class MusicViewModel @Inject constructor(
     }
 
     fun skipToNext() {
-        val current = _currentMusic.value ?: return
-        val list = _allMusic.value
-        if (list.isEmpty()) return
+        val queue = _playQueue.value
+        if (queue.isEmpty()) {
+            // Fallback: try allMusic
+            val allList = _allMusic.value
+            if (allList.isNotEmpty()) {
+                setQueue(allList)
+                return skipToNext()
+            }
+            Log.d("MusicViewModel", "skipToNext: no queue available")
+            return
+        }
 
-        val next = if (_isShuffleEnabled.value) {
-            list.filter { it.id != current.id }.randomOrNull()
+        val currentIdx = _queueIndex.value
+
+        val nextIdx = if (_isShuffleEnabled.value) {
+            val available = queue.indices.filter { it != currentIdx }
+            if (available.isEmpty()) return
+            available.random()
         } else {
-            val idx = list.indexOfFirst { it.id == current.id }
             when {
-                idx == -1 -> null
-                idx == list.size - 1 && _repeatMode.value == 2 -> list.firstOrNull()
-                idx < list.size - 1 -> list[idx + 1]
-                else -> null
+                currentIdx < queue.size - 1 -> currentIdx + 1
+                _repeatMode.value == 2 -> 0 // wrap around
+                else -> return // end of queue, no repeat
             }
         }
 
-        next?.let { playMusic(it) }
+        _queueIndex.value = nextIdx
+        playMusic(queue[nextIdx])
     }
 
     fun skipToPrevious() {
-        val current = _currentMusic.value ?: return
-        val list = _allMusic.value
-        if (list.isEmpty()) return
-
+        // If more than 3 seconds in, restart current track
         if (exoPlayer.currentPosition > 3000) {
             exoPlayer.seekTo(0)
             return
         }
 
-        val previous = if (_isShuffleEnabled.value) {
-            list.filter { it.id != current.id }.randomOrNull()
+        val queue = _playQueue.value
+        if (queue.isEmpty()) {
+            val allList = _allMusic.value
+            if (allList.isNotEmpty()) {
+                setQueue(allList)
+                return skipToPrevious()
+            }
+            Log.d("MusicViewModel", "skipToPrevious: no queue available")
+            return
+        }
+
+        val currentIdx = _queueIndex.value
+
+        val prevIdx = if (_isShuffleEnabled.value) {
+            val available = queue.indices.filter { it != currentIdx }
+            if (available.isEmpty()) return
+            available.random()
         } else {
-            val idx = list.indexOfFirst { it.id == current.id }
             when {
-                idx == -1 -> null
-                idx == 0 && _repeatMode.value == 2 -> list.lastOrNull()
-                idx > 0 -> list[idx - 1]
-                else -> null
+                currentIdx > 0 -> currentIdx - 1
+                _repeatMode.value == 2 -> queue.size - 1 // wrap around
+                else -> return // beginning of queue, no repeat
             }
         }
 
-        previous?.let { playMusic(it) }
+        _queueIndex.value = prevIdx
+        playMusic(queue[prevIdx])
+    }
+
+    /** Set a playback queue and start from a specific track */
+    fun setQueue(queue: List<Music>, startIndex: Int = -1) {
+        _playQueue.value = queue
+        if (startIndex >= 0 && startIndex < queue.size) {
+            _queueIndex.value = startIndex
+        }
+    }
+
+    /** Set queue and play a specific track from it */
+    fun playFromQueue(queue: List<Music>, music: Music) {
+        val idx = queue.indexOfFirst { it.id == music.id }
+        _playQueue.value = queue
+        _queueIndex.value = if (idx >= 0) idx else 0
+        playMusic(music)
     }
 
     fun toggleRepeatMode() {
@@ -584,7 +686,15 @@ class MusicViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        playCountJob?.cancel()
         exoPlayer.removeListener(playbackStateListener)
-        exoPlayer.release()
+        // Do NOT call exoPlayer.release() here!
+        // The ExoPlayer is a @Singleton provided by Hilt DI — releasing it
+        // kills its internal thread permanently. When a new MusicViewModel is
+        // created, it receives the same dead instance, causing
+        // "Handler on a dead thread" errors and playback failure.
+        // Just stop playback; the DI container manages the ExoPlayer lifecycle.
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
     }
 }

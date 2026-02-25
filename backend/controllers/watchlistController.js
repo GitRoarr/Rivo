@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler")
 const Watchlist = require("../models/watchlistModel")
 
 
-const createWatchlist = asyncHandler(async(req, res) => {
+const createWatchlist = asyncHandler(async (req, res) => {
     const { id, name, description } = req.body
 
     if (!id || !name) {
@@ -33,14 +33,14 @@ const createWatchlist = asyncHandler(async(req, res) => {
     }
 })
 
-const getUserWatchlists = asyncHandler(async(req, res) => {
+const getUserWatchlists = asyncHandler(async (req, res) => {
     const watchlists = await Watchlist.find({ createdBy: req.user.id })
     res.json(watchlists)
 })
 
 
-const getWatchlistById = asyncHandler(async(req, res) => {
-    const watchlist = await Watchlist.findOne({ id: req.params.id })
+const getWatchlistById = asyncHandler(async (req, res) => {
+    const watchlist = await Watchlist.findOne({ id: req.params.id }).populate("songs")
 
     if (!watchlist) {
         res.status(404)
@@ -55,7 +55,7 @@ const getWatchlistById = asyncHandler(async(req, res) => {
     res.json(watchlist)
 })
 
-const updateWatchlist = asyncHandler(async(req, res) => {
+const updateWatchlist = asyncHandler(async (req, res) => {
     const watchlist = await Watchlist.findOne({ id: req.params.id })
 
     if (!watchlist) {
@@ -76,7 +76,7 @@ const updateWatchlist = asyncHandler(async(req, res) => {
 })
 
 
-const deleteWatchlist = asyncHandler(async(req, res) => {
+const deleteWatchlist = asyncHandler(async (req, res) => {
     const watchlist = await Watchlist.findOne({ id: req.params.id })
 
     if (!watchlist) {
@@ -94,7 +94,7 @@ const deleteWatchlist = asyncHandler(async(req, res) => {
 })
 
 
-const addSongToWatchlist = asyncHandler(async(req, res) => {
+const addSongToWatchlist = asyncHandler(async (req, res) => {
     const { musicId } = req.body
 
     if (!musicId) {
@@ -126,7 +126,7 @@ const addSongToWatchlist = asyncHandler(async(req, res) => {
 })
 
 
-const removeSongFromWatchlist = asyncHandler(async(req, res) => {
+const removeSongFromWatchlist = asyncHandler(async (req, res) => {
     const watchlist = await Watchlist.findOne({ id: req.params.id })
 
     if (!watchlist) {
@@ -151,7 +151,7 @@ const removeSongFromWatchlist = asyncHandler(async(req, res) => {
     res.json(updatedWatchlist)
 })
 
-const checkSongInWatchlists = asyncHandler(async(req, res) => {
+const checkSongInWatchlists = asyncHandler(async (req, res) => {
     const watchlists = await Watchlist.find({
         createdBy: req.user.id,
         songs: req.params.musicId,

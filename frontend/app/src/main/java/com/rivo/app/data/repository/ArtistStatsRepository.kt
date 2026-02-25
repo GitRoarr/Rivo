@@ -37,10 +37,13 @@ class ArtistStatsRepository @Inject constructor(
                 val analytics = ArtistAnalytics(
                     artistId = artistId ?: "", 
                     totalPlays = stats.totalPlays,
-                    newFollowers = stats.followersCount,
                     totalSongs = stats.totalSongs,
                     pendingCount = stats.pendingCount,
                     unreadNotifications = stats.unreadNotifications,
+                    followersCount = stats.followersCount,
+                    followingCount = stats.followingCount,
+                    monthlyListeners = stats.monthlyListeners,
+                    newFollowers = stats.followersCount,
                     lastUpdated = Date()
                 )
                 if (artistId != null) {

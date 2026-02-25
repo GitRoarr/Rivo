@@ -18,27 +18,24 @@ import com.rivo.app.data.remote.ApiService
 class SearchRepository @Inject constructor(
     private val apiService: ApiService
 ) {
-    private val _searchResults = MutableStateFlow<Pair<List<Music>, List<User>>>(emptyList<Music>() to emptyList<User>())
-    val searchResults: StateFlow<Pair<List<Music>, List<User>>> = _searchResults.asStateFlow()
 
-    fun searchAll(query: String): Flow<Pair<List<Music>, List<User>>> {
-        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
-        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-            try {
-                if (query.isBlank()) {
-                    _searchResults.value = emptyList<Music>() to emptyList<User>()
-                    return@launch
-                }
-                val response = apiService.searchAll(query)
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    _searchResults.value = (body?.music ?: emptyList()) to (body?.artists ?: emptyList())
-                }
-            } catch (e: Exception) {
-                Log.e("SearchRepository", "Search failed: ${e.message}")
+    suspend fun searchAll(query: String): Result<Pair<List<Music>, List<User>>> {
+        return try {
+            if (query.isBlank()) {
+                return Result.success(emptyList<Music>() to emptyList<User>())
             }
+            val response = apiService.searchAll(query)
+            if (response.isSuccessful) {
+                val body = response.body()
+                val results = (body?.music ?: emptyList()) to (body?.artists ?: emptyList())
+                Result.success(results)
+            } else {
+                Result.failure(Exception("Search failed with code: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e("SearchRepository", "Search failed: ${e.message}")
+            Result.failure(e)
         }
-        return searchResults
     }
 
     private val inMemoryHistory = mutableMapOf<String, MutableList<String>>()

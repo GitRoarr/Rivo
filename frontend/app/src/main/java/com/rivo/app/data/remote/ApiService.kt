@@ -140,7 +140,10 @@ interface ApiService {
     suspend fun getMusicByArtist(@Path("artistId") artistId: String): Response<List<Music>>
 
     @POST("api/music/{id}/play")
-    suspend fun incrementMusicPlay(@Path("id") musicId: String): Response<PlayCountResponse>
+    suspend fun incrementMusicPlay(
+        @Path("id") musicId: String,
+        @Body request: IncrementPlayRequest
+    ): Response<PlayCountResponse>
 
     @PUT("api/music/{id}/approve")
     suspend fun approveMusic(@Path("id") musicId: String): Response<MusicApprovalResponse>
@@ -156,7 +159,7 @@ interface ApiService {
     suspend fun getUserPlaylists(): Response<List<Playlist>>
 
     @GET("api/playlists/{id}")
-    suspend fun getPlaylistById(@Path("id") playlistId: Long): Response<Playlist>
+    suspend fun getPlaylistById(@Path("id") playlistId: Long): Response<PlaylistDetailsResponse>
 
     @PUT("api/playlists/{id}")
     suspend fun updatePlaylist(
@@ -187,7 +190,7 @@ interface ApiService {
     suspend fun getUserWatchlists(): Response<List<Watchlist>>
 
     @GET("api/watchlists/{id}")
-    suspend fun getWatchlistById(@Path("id") watchlistId: Long): Response<Watchlist>
+    suspend fun getWatchlistById(@Path("id") watchlistId: Long): Response<WatchlistDetailsResponse>
 
     @PUT("api/watchlists/{id}")
     suspend fun updateWatchlist(
@@ -403,8 +406,14 @@ data class MusicApprovalResponse(
     val music: Music? = null
 )
 
+data class IncrementPlayRequest(
+    val userId: String? = null
+)
+
 data class PlayCountResponse(
-    val plays: Int
+    val plays: Int,
+    val counted: Boolean = true,
+    val message: String? = null
 )
 
 data class ListenerStatsResponse(
@@ -467,6 +476,7 @@ data class ArtistStatsResponse(
     val totalPlays: Int,
     val followersCount: Int,
     val followingCount: Int,
+    val monthlyListeners: Int,
     val totalSongs: Int,
     val topSongs: List<Music>,
     val recentUploads: List<Music>,
@@ -522,4 +532,26 @@ data class LikedSongCheckResponse(
 
 data class FollowStatusResponse(
     val isFollowing: Boolean
+)
+
+data class PlaylistDetailsResponse(
+    val id: Long,
+    val name: String,
+    val description: String,
+    val coverArtUrl: String?,
+    val createdBy: String,
+    val isPublic: Boolean,
+    val songs: List<Music>,
+    val createdAt: String?,
+    val updatedAt: String?
+)
+
+data class WatchlistDetailsResponse(
+    val id: Long,
+    val name: String,
+    val description: String,
+    val createdBy: String,
+    val songs: List<Music>,
+    val createdAt: String?,
+    val updatedAt: String?
 )

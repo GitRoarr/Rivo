@@ -3,6 +3,7 @@ const Music = require("../models/musicModel")
 const User = require("../models/userModel")
 const Follow = require("../models/followModel")
 const Notification = require("../models/notificationModel")
+const MusicPlayed = require("../models/musicPlayedModel")
 
 // @desc    Get artist dashboard stats
 // @route   GET /api/stats/artist
@@ -14,11 +15,31 @@ const getArtistStats = asyncHandler(async (req, res) => {
     const music = await Music.find({ artist: artistId })
     const totalPlays = music.reduce((acc, curr) => acc + (curr.plays || 0), 0)
 
+    const musicIds = music.map((m) => m._id)
+
     // Total followers
     const followersCount = await Follow.countDocuments({ followingId: artistId.toString() })
 
     // Total following
     const followingCount = await Follow.countDocuments({ followerId: artistId.toString() })
+
+    // Monthly listeners (unique listeners in the last 30 days across all artist tracks)
+    let monthlyListeners = 0
+    if (musicIds.length > 0) {
+        const thirtyDaysAgoForListeners = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        const monthlyListenersAgg = await MusicPlayed.aggregate([
+            {
+                $match: {
+                    musicId: { $in: musicIds },
+                    playedAt: { $gte: thirtyDaysAgoForListeners },
+                },
+            },
+            { $group: { _id: "$userId" } },
+            { $count: "count" },
+        ])
+
+        monthlyListeners = monthlyListenersAgg[0]?.count || 0
+    }
 
     // Top performing songs
     const topSongs = await Music.find({ artist: artistId })
@@ -42,11 +63,12 @@ const getArtistStats = asyncHandler(async (req, res) => {
         totalPlays,
         followersCount,
         followingCount,
+        monthlyListeners,
         totalSongs: music.length,
         topSongs,
         recentUploads,
         pendingCount,
-        unreadNotifications
+        unreadNotifications,
     })
 })
 

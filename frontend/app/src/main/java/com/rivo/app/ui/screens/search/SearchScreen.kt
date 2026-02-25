@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rivo.app.data.model.Music
 import com.rivo.app.data.model.User
+import com.rivo.app.data.model.VerificationStatus
 import com.rivo.app.ui.theme.*
 import com.rivo.app.ui.viewmodel.SearchViewModel
 import kotlinx.coroutines.delay
@@ -97,7 +98,7 @@ fun SearchScreen(
             // Premium Search Bar
             PremiumSearchBar(
                 query = query,
-                onQueryChange = { searchViewModel.search(it) },
+                onQueryChange = { searchViewModel.onQueryChange(it) },
                 onBackClick = onBackClick,
                 onClearClick = { searchViewModel.clearSearch() }
             )
@@ -469,7 +470,7 @@ fun SearchArtistListItem(artist: User, onClick: () -> Unit) {
                 .background(White.copy(0.05f))
         ) {
             AsyncImage(
-                model = artist.profileImageUrl ?: artist.profilePictureUrl,
+                model = if (!artist.profileImageUrl.isNullOrEmpty()) artist.profileImageUrl else artist.profilePictureUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
@@ -477,13 +478,24 @@ fun SearchArtistListItem(artist: User, onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = artist.name,
-                color = White,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = artist.name,
+                    color = White,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (artist.isVerified || artist.verificationStatus == VerificationStatus.VERIFIED) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Verified",
+                        tint = Color(0xFF3897F0),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
             Text(
                 text = "Artist • ${formatFollowers(artist.followerCount)} fans",
                 color = RivoPink,

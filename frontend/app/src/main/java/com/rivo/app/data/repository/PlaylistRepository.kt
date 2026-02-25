@@ -101,15 +101,18 @@ class PlaylistRepository @Inject constructor(
             try {
                 val response = apiService.getPlaylistById(playlistId)
                 if (response.isSuccessful) {
-                    val playlist = response.body()
-                    if (playlist != null) {
-                        val musicList = playlist.songs.mapNotNull { songId ->
-                            try {
-                                val musicResponse = apiService.getMusicById(songId)
-                                if (musicResponse.isSuccessful) musicResponse.body() else null
-                            } catch (e: Exception) { null }
-                        }
-                        flow.value = PlaylistWithMusic(playlist = playlist, musicList = musicList)
+                    val details = response.body()
+                    if (details != null) {
+                        val playlist = Playlist(
+                            id = details.id,
+                            name = details.name,
+                            description = details.description,
+                            coverArtUrl = details.coverArtUrl,
+                            createdBy = details.createdBy,
+                            isPublic = details.isPublic,
+                            songs = details.songs.map { it.id }
+                        )
+                        flow.value = PlaylistWithMusic(playlist = playlist, musicList = details.songs)
                     }
                 }
             } catch (e: Exception) {
@@ -144,7 +147,19 @@ class PlaylistRepository @Inject constructor(
     suspend fun getPlaylistById(playlistId: Long): Playlist? {
         return try {
             val response = apiService.getPlaylistById(playlistId)
-            if (response.isSuccessful) response.body() else null
+            if (response.isSuccessful) {
+                response.body()?.let { details ->
+                    Playlist(
+                        id = details.id,
+                        name = details.name,
+                        description = details.description,
+                        coverArtUrl = details.coverArtUrl,
+                        createdBy = details.createdBy,
+                        isPublic = details.isPublic,
+                        songs = details.songs.map { it.id }
+                    )
+                }
+            } else null
         } catch (e: Exception) {
             null
         }
